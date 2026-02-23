@@ -46,43 +46,49 @@ class GitClient:
             ["git", *args],
             cwd=self.cwd,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             input=input_text,
             capture_output=True,
             check=False,
         )
         if check and completed.returncode != 0:
-            stderr = completed.stderr.strip() or completed.stdout.strip()
+            stderr = (completed.stderr or "").strip() or (completed.stdout or "").strip()
             raise GitError(f"git {' '.join(args)} failed: {stderr}")
         return completed
 
     def ensure_repo(self) -> None:
         result = self._run("rev-parse", "--is-inside-work-tree")
-        if result.stdout.strip().lower() != "true":
+        if (result.stdout or "").strip().lower() != "true":
             raise GitError(f"{self.cwd} is not inside a git repository.")
 
     def current_branch(self) -> str:
         result = self._run("rev-parse", "--abbrev-ref", "HEAD")
-        return result.stdout.strip()
+        return (result.stdout or "").strip()
 
     def status_short(self) -> str:
         result = self._run("status", "--short")
-        return result.stdout.rstrip()
+        return (result.stdout or "").rstrip()
 
     def staged_diff(self) -> str:
         result = self._run("diff", "--cached", "--no-color", "--unified=3")
-        return result.stdout.rstrip()
+        return (result.stdout or "").rstrip()
 
     def unstaged_diff(self) -> str:
         result = self._run("diff", "--no-color", "--unified=3")
-        return result.stdout.rstrip()
+        return (result.stdout or "").rstrip()
 
     def untracked_files(self) -> str:
         result = self._run("ls-files", "--others", "--exclude-standard")
-        return result.stdout.rstrip()
+        return (result.stdout or "").rstrip()
 
     def changed_files(self) -> list[str]:
         result = self._run("status", "--porcelain")
-        lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        lines = [
+            line.strip()
+            for line in (result.stdout or "").splitlines()
+            if line.strip()
+        ]
         files: list[str] = []
         for line in lines:
             if len(line) < 4:
@@ -104,18 +110,18 @@ class GitClient:
         result = self._run("log", f"-{limit}", "--pretty=format:%s", check=False)
         if result.returncode != 0:
             return ""
-        return result.stdout.rstrip()
+        return (result.stdout or "").rstrip()
 
     def stage_all(self) -> None:
         self._run("add", "--all")
 
     def commit(self, message: str) -> str:
         result = self._run("commit", "-F", "-", input_text=message)
-        return result.stdout.strip()
+        return (result.stdout or "").strip()
 
     def push(self, remote: str, branch: str) -> str:
         result = self._run("push", remote, branch)
-        return (result.stdout + result.stderr).strip()
+        return ((result.stdout or "") + (result.stderr or "")).strip()
 
     def snapshot(self) -> RepoSnapshot:
         return RepoSnapshot(
@@ -127,4 +133,3 @@ class GitClient:
             changed_files=self.changed_files(),
             recent_commits=self.recent_commit_subjects(),
         )
-
