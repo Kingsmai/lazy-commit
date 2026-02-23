@@ -84,15 +84,14 @@ class GitClient:
 
     def changed_files(self) -> list[str]:
         result = self._run("status", "--porcelain")
-        lines = [
-            line.strip()
-            for line in (result.stdout or "").splitlines()
-            if line.strip()
-        ]
         files: list[str] = []
-        for line in lines:
+        for line in (result.stdout or "").splitlines():
+            if not line.strip():
+                continue
             if len(line) < 4:
                 continue
+            # Porcelain format reserves the first 3 chars for XY status + separator.
+            # Keep leading spaces in status columns to avoid trimming the first path char.
             path = line[3:]
             # For renames git returns "old -> new"; keep destination.
             if " -> " in path:
