@@ -17,6 +17,8 @@
 - Auto-detect OpenAI vs Gemini API style
 - JSON-constrained commit proposal parsing and normalization
 - One-command flow for generate -> commit -> push
+- Auto-copy generated commit message to clipboard (can disable with `--no-copy`)
+- Cleaner CLI output with sectioned summary and message box preview
 
 ## Installation
 
@@ -77,22 +79,34 @@ Useful flags:
 - `--show-context`: print the trimmed context sent to model
 - `--show-raw-response`: print raw model response (for debugging)
 - `--model`, `--base-url`, `--api-key`, `--max-context-size`: runtime overrides
+- `--no-copy`: disable automatic clipboard copy
 
 ## Example output
 
 ```text
+[Generation Summary]
 Provider: openai
 Model: gpt-4.1-mini
+Branch: main
+Files: 2
 Changed files:
   - src/lazy_commit/cli.py
   - src/lazy_commit/llm.py
 
-Generated commit message:
--------------------------
-feat(cli): add provider-aware one-click commit and push flow
+[Generated Commit Message]
++-------------------------------------------------------------------+
+| feat(cli): add provider-aware one-click commit and push flow      |
+|                                                                    |
+| Normalize model JSON output and support OpenAI/Gemini behavior.    |
++-------------------------------------------------------------------+
+Copied to clipboard via xclip -selection clipboard.
+Preview only. Re-run with --apply to create commit.
+```
 
-Normalize model JSON output and support OpenAI/Gemini endpoint behavior.
--------------------------
+Disable auto-copy:
+
+```bash
+lazy-commit --no-copy
 ```
 
 ## Development

@@ -43,6 +43,7 @@ CLI flags can override all of them at runtime.
    - stage all
    - commit
    - push
+8. Auto-copy generated message to clipboard (unless disabled).
 
 ## 4. Architecture
 
@@ -62,6 +63,11 @@ Code modules:
 - `src/lazy_commit/commit_message.py`
   - parse model JSON output
   - normalize to Conventional Commit message
+- `src/lazy_commit/clipboard.py`
+  - cross-platform clipboard command fallback
+  - auto-copy generated message
+- `src/lazy_commit/ui.py`
+  - consistent, readable terminal rendering
 - `src/lazy_commit/cli.py`
   - command orchestration
 
@@ -91,4 +97,3 @@ Planned extension points:
 - Add policy profiles (strict conventional, Jira-linked, mono-repo scope policy).
 - Add batch mode (`--all-repos`) and pre-commit hooks.
 - Add fallback model chain when primary provider fails.
-
