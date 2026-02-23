@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lazy-commit"
-version = "0.1.0"
+version = "0.2.0"
 description = "Understand git changes and generate normalized commit messages with one-click apply/push."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,4 +19,3 @@ lazy-commit = "lazy_commit.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lazy_commit"]
-

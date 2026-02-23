@@ -99,6 +99,9 @@ def run(argv: list[str] | None = None) -> int:
     if args.push and not args.apply:
         raise ConfigError("--push requires --apply.")
 
+    print(ui.rule("="))
+    print(ui.section("Execution Log"))
+    print(ui.info("Loading settings..."))
     settings = load_settings(
         api_key=args.api_key,
         base_url=args.base_url,
@@ -106,13 +109,17 @@ def run(argv: list[str] | None = None) -> int:
         max_context_size=args.max_context_size,
     )
 
+    print(ui.info("Checking git repository..."))
     git = GitClient()
     git.ensure_repo()
+    print(ui.info("Collecting git snapshot..."))
     snapshot = git.snapshot()
     if not snapshot.has_any_changes:
         print(ui.warn("No local changes found. Nothing to generate."))
+        print(ui.rule("="))
         return 0
 
+    print(ui.info("Building model context..."))
     prompt_payload = build_prompt(snapshot, max_chars=settings.max_context_size)
     if args.show_context:
         print(ui.rule("="))
@@ -120,6 +127,11 @@ def run(argv: list[str] | None = None) -> int:
         print(prompt_payload.context)
         print(ui.rule("="))
 
+    print(
+        ui.info(
+            f"Requesting commit proposal ({settings.provider}/{settings.model_name})..."
+        )
+    )
     client = LLMClient(settings)
     llm_response = client.complete(prompt_payload)
 
@@ -129,6 +141,7 @@ def run(argv: list[str] | None = None) -> int:
         print(llm_response.text)
         print(ui.rule("="))
 
+    print(ui.info("Parsing model response..."))
     proposal = parse_commit_proposal(llm_response.text)
     final_message = proposal.to_commit_message()
 
