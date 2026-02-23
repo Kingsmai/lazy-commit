@@ -28,6 +28,45 @@ source .venv/bin/activate
 pip install -e .
 ```
 
+### Global install (outside venv)
+
+If you already activated a virtual environment, exit first:
+
+```bash
+deactivate
+```
+
+Install for current user (recommended):
+
+```bash
+python3 -m pip install --user .
+```
+
+Install in editable mode for current user:
+
+```bash
+python3 -m pip install --user -e .
+```
+
+Ensure user bin is in `PATH` (zsh):
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Verify:
+
+```bash
+lazy-commit --help
+```
+
+System-wide install (not recommended) requires `sudo`:
+
+```bash
+sudo python3 -m pip install .
+```
+
 ## Configuration
 
 ### OpenAI
