@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lazy-commit"
-version = "0.2.0"
+version = "0.3.0"
 description = "Understand git changes and generate normalized commit messages with one-click apply/push."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,7 +12,9 @@ license = { text = "MIT" }
 authors = [
   { name = "lazy-commit maintainers" }
 ]
-dependencies = []
+dependencies = [
+  "rich>=13.7",
+]
 
 [project.scripts]
 lazy-commit = "lazy_commit.cli:main"

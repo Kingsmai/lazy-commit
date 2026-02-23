@@ -18,7 +18,7 @@
 - JSON-constrained commit proposal parsing and normalization
 - One-command flow for generate -> commit -> push
 - Auto-copy generated commit message to clipboard (can disable with `--no-copy`)
-- Cleaner CLI output with sectioned summary and message box preview
+- Rich-powered CLI output (tables/panels) with plain-text fallback when unavailable
 
 ## Installation
 

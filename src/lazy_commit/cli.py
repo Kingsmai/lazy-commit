@@ -147,11 +147,15 @@ def run(argv: list[str] | None = None) -> int:
 
     print(ui.rule("="))
     print(ui.section("Generation Summary"))
-    print(ui.key_value("Provider", settings.provider))
-    print(ui.key_value("Model", settings.model_name))
-    print(ui.key_value("Branch", snapshot.branch))
-    print(ui.key_value("Files", str(len(snapshot.changed_files))))
-    print("Changed files:")
+    print(
+        ui.render_generation_summary(
+            provider=settings.provider,
+            model=settings.model_name,
+            branch=snapshot.branch,
+            file_count=len(snapshot.changed_files),
+        )
+    )
+    print(ui.section("Changed Files"))
     print(ui.render_files(snapshot.changed_files))
     print("")
     print(ui.section("Generated Commit Message"))
