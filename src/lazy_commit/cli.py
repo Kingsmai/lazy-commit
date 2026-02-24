@@ -12,6 +12,7 @@ from .errors import ConfigError, GitError, LLMError, LazyCommitError
 from .git_ops import GitClient
 from .llm import LLMClient
 from .prompting import build_prompt
+from .token_count import DEFAULT_TOKEN_MODEL, count_tokens
 from . import ui
 
 
@@ -33,6 +34,33 @@ def build_parser() -> argparse.ArgumentParser:
         "--max-context-size",
         type=int,
         help="Override LAZY_COMMIT_MAX_CONTEXT_SIZE in characters.",
+    )
+    parser.add_argument(
+        "--max-context-tokens",
+        type=int,
+        help="Override LAZY_COMMIT_MAX_CONTEXT_TOKENS for token-aware context compression.",
+    )
+    parser.add_argument(
+        "--count-tokens",
+        nargs="?",
+        const="-",
+        metavar="TEXT",
+        help="Count tokens for TEXT and exit. If TEXT is omitted, read from stdin.",
+    )
+    parser.add_argument(
+        "--token-model",
+        help=(
+            "Tokenizer model for token counting and estimation. "
+            f"In --count-tokens mode defaults to {DEFAULT_TOKEN_MODEL}; "
+            "in generation mode defaults to --model/LAZY_COMMIT_OPENAI_MODEL_NAME."
+        ),
+    )
+    parser.add_argument(
+        "--token-encoding",
+        help=(
+            "Override tokenizer encoding for token counting and prompt estimation "
+            "(for example: o200k_base)."
+        ),
     )
     parser.add_argument(
         "--apply",
@@ -94,8 +122,34 @@ def _confirm(prompt: str) -> bool:
     return answer in {"y", "yes"}
 
 
+def _resolve_token_input(value: str) -> str:
+    if value != "-":
+        return value
+    if sys.stdin.isatty():
+        raise ConfigError("--count-tokens without TEXT requires piped stdin.")
+    return sys.stdin.read()
+
+
 def run(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.count_tokens is not None:
+        token_text = _resolve_token_input(args.count_tokens)
+        token_model = args.token_model or DEFAULT_TOKEN_MODEL
+        result = count_tokens(
+            token_text,
+            model_name=token_model,
+            encoding_name=args.token_encoding,
+        )
+        print(ui.rule("="))
+        print(ui.section("Token Count"))
+        print(ui.key_value("Model", result.model_name))
+        print(ui.key_value("Encoding", result.encoding_name))
+        print(ui.key_value("Characters", str(result.character_count)))
+        print(ui.key_value("Tokens", str(result.token_count)))
+        print(ui.rule("="))
+        return 0
+
     if args.push and not args.apply:
         raise ConfigError("--push requires --apply.")
 
@@ -107,6 +161,7 @@ def run(argv: list[str] | None = None) -> int:
         base_url=args.base_url,
         model_name=args.model,
         max_context_size=args.max_context_size,
+        max_context_tokens=args.max_context_tokens,
     )
 
     print(ui.info("Checking git repository..."))
@@ -120,7 +175,39 @@ def run(argv: list[str] | None = None) -> int:
         return 0
 
     print(ui.info("Building model context..."))
-    prompt_payload = build_prompt(snapshot, max_chars=settings.max_context_size)
+    prompt_token_model = args.token_model or settings.model_name
+    prompt_payload = build_prompt(
+        snapshot,
+        max_chars=settings.max_context_size,
+        max_tokens=settings.max_context_tokens,
+        token_model=prompt_token_model,
+        token_encoding=args.token_encoding,
+    )
+    if prompt_payload.token_usage is not None:
+        usage = prompt_payload.token_usage
+        print(
+            ui.info(
+                "Estimated prompt tokens: "
+                f"total {usage.total_tokens_after} / context {usage.context_tokens_after} "
+                f"(model={usage.model_name}, encoding={usage.encoding_name})."
+            )
+        )
+        if usage.token_limit is not None:
+            print(
+                ui.info(
+                    "Context token budget: "
+                    f"{usage.context_tokens_after}/{usage.token_limit} "
+                    f"(before compression: {usage.context_tokens_before})."
+                )
+            )
+            if usage.compression_applied:
+                steps = ", ".join(usage.compression_steps)
+                print(
+                    ui.warn(
+                        "Context exceeded token budget; compression applied: "
+                        f"{steps}."
+                    )
+                )
     if args.show_context:
         print(ui.rule("="))
         print(ui.section("Context Sent To Model"))

@@ -4,6 +4,7 @@ import os
 import unittest
 
 from lazy_commit.config import GEMINI_PROVIDER, OPENAI_PROVIDER, detect_provider, load_settings
+from lazy_commit.errors import ConfigError
 
 
 class ConfigTests(unittest.TestCase):
@@ -22,10 +23,23 @@ class ConfigTests(unittest.TestCase):
             os.environ["LAZY_COMMIT_BASE_URL"] = "https://api.openai.com/v1"
             os.environ["LAZY_COMMIT_OPENAI_MODEL_NAME"] = "gpt-4.1-mini"
             os.environ["LAZY_COMMIT_MAX_CONTEXT_SIZE"] = "1000"
+            os.environ["LAZY_COMMIT_MAX_CONTEXT_TOKENS"] = "900"
             settings = load_settings()
             self.assertEqual(settings.api_key, "test-key")
             self.assertEqual(settings.model_name, "gpt-4.1-mini")
             self.assertEqual(settings.max_context_size, 1000)
+            self.assertEqual(settings.max_context_tokens, 900)
+        finally:
+            os.environ.clear()
+            os.environ.update(old)
+
+    def test_load_settings_rejects_non_positive_token_limit(self) -> None:
+        old = dict(os.environ)
+        try:
+            os.environ["LAZY_COMMIT_API_KEY"] = "test-key"
+            os.environ["LAZY_COMMIT_MAX_CONTEXT_TOKENS"] = "0"
+            with self.assertRaises(ConfigError):
+                load_settings()
         finally:
             os.environ.clear()
             os.environ.update(old)
@@ -33,4 +47,3 @@ class ConfigTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

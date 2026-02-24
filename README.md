@@ -2,12 +2,13 @@
 
 `lazy-commit` is a Python CLI that understands your local Git changes, asks an LLM for a structured Conventional Commit proposal, normalizes the result, and optionally runs `git commit` and `git push` in one flow.
 
-Current package version: `0.3.1`.
+Current package version: `0.4.0`.
 
 ## Highlights
 
 - Provider-aware generation for OpenAI-compatible APIs and Gemini APIs
 - Bounded Git context (`LAZY_COMMIT_MAX_CONTEXT_SIZE`) to control prompt size
+- Standalone token counting mode (`--count-tokens`) with model-aware encoding lookup
 - Deterministic normalization of commit message fields
 - Preview-first workflow with optional apply, stage-all, and push
 - Cross-platform clipboard copy enabled by default (`--no-copy` to disable)
@@ -17,7 +18,7 @@ Current package version: `0.3.1`.
 
 - Python `>=3.10`
 - Git available in `PATH`
-- A model API key (OpenAI-compatible or Gemini)
+- A model API key (OpenAI-compatible or Gemini) for commit generation flow
 
 ## Installation
 
@@ -88,6 +89,13 @@ lazy-commit --apply
 lazy-commit --apply --stage-all --push --yes
 ```
 
+### 5. Count tokens only (no Git/API key required)
+
+```bash
+lazy-commit --count-tokens "feat(cli): add token count mode"
+echo "你好，世界" | lazy-commit --count-tokens --token-model gpt-4.1-mini
+```
+
 ## Configuration Reference
 
 Environment variables:
@@ -98,6 +106,7 @@ Environment variables:
 | `LAZY_COMMIT_BASE_URL` | No | Base URL for API endpoint selection |
 | `LAZY_COMMIT_OPENAI_MODEL_NAME` | No | Model id used for both OpenAI-compatible and Gemini modes |
 | `LAZY_COMMIT_MAX_CONTEXT_SIZE` | No | Max context size in characters (must be positive integer) |
+| `LAZY_COMMIT_MAX_CONTEXT_TOKENS` | No | Max context tokens before compression strategy is applied |
 
 Compatibility aliases also supported:
 
@@ -110,6 +119,7 @@ CLI flags override environment values at runtime:
 - `--base-url`
 - `--model`
 - `--max-context-size`
+- `--max-context-tokens`
 
 ## Provider Detection and Defaults
 
@@ -135,8 +145,11 @@ OpenAI base URL normalization:
 
 ```text
 lazy-commit [--api-key API_KEY] [--base-url BASE_URL] [--model MODEL]
-            [--max-context-size N] [--apply] [--push] [--stage-all]
-            [--yes] [--remote REMOTE] [--branch BRANCH]
+            [--max-context-size N] [--max-context-tokens N]
+            [--count-tokens [TEXT]]
+            [--token-model MODEL] [--token-encoding ENCODING]
+            [--apply] [--push] [--stage-all] [--yes]
+            [--remote REMOTE] [--branch BRANCH]
             [--show-context] [--show-raw-response] [--copy | --no-copy]
 ```
 
@@ -148,12 +161,24 @@ Options:
 | `--push` | Push after commit (requires `--apply`) |
 | `--stage-all` | Stage tracked and untracked changes before commit |
 | `--yes` | Skip confirmation prompt when `--apply` is used |
+| `--max-context-tokens` | Token budget for model context; triggers automatic compression when exceeded |
 | `--remote` | Remote name for push (default `origin`) |
 | `--branch` | Branch name for push (default current branch) |
 | `--show-context` | Print trimmed context sent to model |
 | `--show-raw-response` | Print raw model response before parsing |
 | `--copy` | Enable clipboard copy (default enabled) |
 | `--no-copy` | Disable clipboard copy |
+| `--count-tokens [TEXT]` | Count tokens for text and exit; omit `TEXT` to read from stdin |
+| `--token-model` | Model name used for tokenizer lookup (count mode + generation token estimation) |
+| `--token-encoding` | Explicit tokenizer encoding override (for example `o200k_base`) |
+
+When `--count-tokens` is used, the command exits after printing token metadata and does not require Git repository checks or API key configuration.
+
+When generating commits, lazy-commit prints estimated prompt token usage.  
+If `--max-context-tokens` (or `LAZY_COMMIT_MAX_CONTEXT_TOKENS`) is set and exceeded, it compresses context in this order:
+1. Drop low-priority sections (`Untracked Files`, `Recent Commit Subjects`)
+2. Compress large diff sections (`Staged Diff`, `Unstaged Diff`)
+3. Hard-truncate remaining context to fit token budget
 
 ## Runtime Flow
 
