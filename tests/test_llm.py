@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
-from lazy_commit.llm import _format_http_error, _normalize_openai_base_url
+from lazy_commit.errors import LLMError
+from lazy_commit.llm import (
+    _format_http_error,
+    _normalize_openai_base_url,
+    _post_json,
+)
 
 
 class LLMHelpersTests(unittest.TestCase):
@@ -51,7 +57,52 @@ class LLMHelpersTests(unittest.TestCase):
         self.assertNotIn("key=secret", msg)
         self.assertIn("Invalid API key", msg)
 
+    def test_post_json_timeout_is_reported_as_llm_error(self) -> None:
+        with patch(
+            "lazy_commit.llm.urllib.request.urlopen",
+            side_effect=TimeoutError("read operation timed out"),
+        ):
+            with self.assertRaises(LLMError) as ctx:
+                _post_json(
+                    "https://example.com/models/gemini:generateContent?key=secret",
+                    body={"hello": "world"},
+                    headers={"Content-Type": "application/json"},
+                    timeout=5,
+                    attempts=2,
+                )
+
+        message = str(ctx.exception)
+        self.assertIn("timed out after 5s", message)
+        self.assertIn("attempted 2 times", message)
+        self.assertIn("endpoint=https://example.com/models/gemini:generateContent", message)
+        self.assertNotIn("key=secret", message)
+
+    def test_post_json_retries_after_timeout_and_succeeds(self) -> None:
+        class _Response:
+            def __enter__(self) -> _Response:
+                return self
+
+            def __exit__(self, *_args: object) -> bool:
+                return False
+
+            def read(self) -> bytes:
+                return b'{"ok":true}'
+
+        with patch(
+            "lazy_commit.llm.urllib.request.urlopen",
+            side_effect=[TimeoutError("timeout"), _Response()],
+        ) as mocked_urlopen:
+            data = _post_json(
+                "https://example.com/v1/chat/completions",
+                body={"hello": "world"},
+                headers={"Authorization": "Bearer test"},
+                timeout=5,
+                attempts=2,
+            )
+
+        self.assertEqual(data, {"ok": True})
+        self.assertEqual(mocked_urlopen.call_count, 2)
+
 
 if __name__ == "__main__":
     unittest.main()
-

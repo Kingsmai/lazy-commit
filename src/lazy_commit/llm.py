@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import socket
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -13,6 +14,7 @@ from .errors import LLMError
 from .prompting import PromptPayload
 
 DEFAULT_TIMEOUT_SECONDS = 60
+DEFAULT_TIMEOUT_ATTEMPTS = 2
 DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 DEFAULT_USER_AGENT = "lazy-commit/0.1.0"
@@ -85,22 +87,50 @@ def _format_http_error(code: int, detail: str, url: str) -> str:
     return f"HTTP {code} while calling model API ({safe_url}): {_extract_error_message(detail)}"
 
 
+def _format_timeout_error(url: str, timeout: int, attempts: int) -> str:
+    safe_url = _sanitize_url(url)
+    return (
+        f"Model API request timed out after {timeout}s "
+        f"(attempted {attempts} time{'s' if attempts != 1 else ''}, endpoint={safe_url}). "
+        "Check network/proxy/VPN and retry."
+    )
+
+
+def _is_timeout_reason(reason: object) -> bool:
+    return isinstance(reason, (TimeoutError, socket.timeout))
+
+
 def _post_json(
     url: str,
     body: dict,
     headers: dict[str, str],
     timeout: int = DEFAULT_TIMEOUT_SECONDS,
+    attempts: int = DEFAULT_TIMEOUT_ATTEMPTS,
 ) -> dict:
+    if attempts <= 0:
+        raise ValueError("attempts must be a positive integer.")
+
     payload = json.dumps(body).encode("utf-8")
     request = urllib.request.Request(url=url, method="POST", data=payload, headers=headers)
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        raise LLMError(_format_http_error(exc.code, detail, url)) from exc
-    except urllib.error.URLError as exc:
-        raise LLMError(f"Failed to call model API: {exc.reason}") from exc
+    last_timeout_error: BaseException | None = None
+    for _ in range(attempts):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                raw = response.read().decode("utf-8")
+            break
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise LLMError(_format_http_error(exc.code, detail, url)) from exc
+        except urllib.error.URLError as exc:
+            if _is_timeout_reason(exc.reason):
+                last_timeout_error = exc
+                continue
+            raise LLMError(f"Failed to call model API: {exc.reason}") from exc
+        except (TimeoutError, socket.timeout) as exc:
+            last_timeout_error = exc
+            continue
+    else:
+        raise LLMError(_format_timeout_error(url, timeout, attempts)) from last_timeout_error
 
     try:
         return json.loads(raw)
