@@ -22,7 +22,7 @@
     "cli.help.show_raw_response": "Print raw model response before parsing.",
     "cli.help.copy": "Copy generated commit message to clipboard (default: enabled).",
     "cli.help.no_copy": "Disable clipboard copy.",
-    "cli.help.lang": "UI language (for example: en, zh-CN). Defaults to LAZY_COMMIT_LANG or English.",
+    "cli.help.lang": "UI language (for example: en, zh-CN, zh-TW). Defaults to LAZY_COMMIT_LANG or English.",
     "cli.help.list_languages": "List supported UI languages and exit.",
     "cli.help.check_i18n": "Validate locale catalogs for missing keys and placeholder mismatches.",
     "cli.error.count_tokens_stdin_required": "--count-tokens without TEXT requires piped stdin.",

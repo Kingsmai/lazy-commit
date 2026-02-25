@@ -11,6 +11,7 @@ from typing import Any, Mapping, Sequence
 
 DEFAULT_LANGUAGE = "en"
 ZH_CN_LANGUAGE = "zh-cn"
+ZH_TW_LANGUAGE = "zh-tw"
 
 _FALLBACK_YES_ANSWERS = {"y", "yes"}
 
@@ -285,8 +286,16 @@ def normalize_language(value: str | None) -> str:
     if base in _TRANSLATIONS:
         return base
 
-    if normalized.startswith("zh") and ZH_CN_LANGUAGE in _TRANSLATIONS:
-        return ZH_CN_LANGUAGE
+    if normalized.startswith("zh"):
+        if (
+            ZH_TW_LANGUAGE in _TRANSLATIONS
+            and any(marker in normalized for marker in ("-tw", "-hk", "-mo", "-hant"))
+        ):
+            return ZH_TW_LANGUAGE
+        if ZH_CN_LANGUAGE in _TRANSLATIONS:
+            return ZH_CN_LANGUAGE
+        if ZH_TW_LANGUAGE in _TRANSLATIONS:
+            return ZH_TW_LANGUAGE
     if normalized.startswith("en"):
         return DEFAULT_LANGUAGE
 

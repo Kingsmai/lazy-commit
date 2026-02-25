@@ -74,7 +74,7 @@ Code modules:
   - placeholder/key consistency validation for locale catalogs
   - localized confirmation input handling
 - `src/lazy_commit/locales/`
-  - editable JSON locale catalogs (`en.json`, `zh-cn.json`)
+  - editable JSON locale catalogs (`en.json`, `zh-cn.json`, `zh-tw.json`)
 - `src/lazy_commit/ui.py`
   - consistent, readable terminal rendering
 - `src/lazy_commit/cli.py`

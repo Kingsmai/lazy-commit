@@ -6,6 +6,7 @@ from unittest.mock import patch
 from lazy_commit.i18n import (
     DEFAULT_LANGUAGE,
     ZH_CN_LANGUAGE,
+    ZH_TW_LANGUAGE,
     available_languages,
     detect_language,
     get_language,
@@ -30,6 +31,8 @@ class I18nTests(unittest.TestCase):
         self.assertEqual(normalize_language("en-US"), DEFAULT_LANGUAGE)
         self.assertEqual(normalize_language("zh"), ZH_CN_LANGUAGE)
         self.assertEqual(normalize_language("zh_CN"), ZH_CN_LANGUAGE)
+        self.assertEqual(normalize_language("zh-TW"), ZH_TW_LANGUAGE)
+        self.assertEqual(normalize_language("zh-Hant"), ZH_TW_LANGUAGE)
         self.assertEqual(normalize_language("unknown"), DEFAULT_LANGUAGE)
 
     def test_detect_language_prefers_explicit_value(self) -> None:
@@ -51,12 +54,18 @@ class I18nTests(unittest.TestCase):
         self.assertTrue(is_affirmative("是"))
         self.assertTrue(is_affirmative("yes"))
 
+        set_language("zh-TW")
+        self.assertEqual(t("cli.log.loading_settings"), "正在載入設定...")
+        self.assertTrue(is_affirmative("是"))
+
     def test_available_languages_includes_aliases(self) -> None:
         languages = {language.code: language for language in available_languages()}
         self.assertIn(DEFAULT_LANGUAGE, languages)
         self.assertIn(ZH_CN_LANGUAGE, languages)
+        self.assertIn(ZH_TW_LANGUAGE, languages)
         self.assertIn("en-us", languages[DEFAULT_LANGUAGE].aliases)
         self.assertIn("zh", languages[ZH_CN_LANGUAGE].aliases)
+        self.assertIn("zh-hant", languages[ZH_TW_LANGUAGE].aliases)
 
     def test_bundled_catalog_has_no_i18n_issues(self) -> None:
         self.assertEqual(translation_issues(), ())

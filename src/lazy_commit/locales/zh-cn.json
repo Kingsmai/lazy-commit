@@ -22,7 +22,7 @@
     "cli.help.show_raw_response": "解析前打印模型原始响应。",
     "cli.help.copy": "将生成的提交信息复制到剪贴板（默认开启）。",
     "cli.help.no_copy": "关闭剪贴板复制。",
-    "cli.help.lang": "界面语言（例如：en、zh-CN）。默认取 LAZY_COMMIT_LANG，否则英文。",
+    "cli.help.lang": "界面语言（例如：en、zh-CN、zh-TW）。默认取 LAZY_COMMIT_LANG，否则英文。",
     "cli.help.list_languages": "列出支持的界面语言并退出。",
     "cli.help.check_i18n": "校验语言目录是否存在缺失 key 或占位符不匹配。",
     "cli.error.count_tokens_stdin_required": "--count-tokens 未提供 TEXT 时需要通过管道输入 stdin。",

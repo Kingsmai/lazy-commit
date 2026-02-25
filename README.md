@@ -2,7 +2,7 @@
 
 `lazy-commit` is a Python CLI that understands your local Git changes, asks an LLM for a structured Conventional Commit proposal, normalizes the result, and optionally runs `git commit` and `git push` in one flow.
 
-Current package version: `0.6.0`.
+Current package version: `0.7.0`.
 
 ## Highlights
 
@@ -12,7 +12,7 @@ Current package version: `0.6.0`.
 - Deterministic normalization of commit message fields
 - Preview-first workflow with optional apply, stage-all, and push
 - Cross-platform clipboard copy enabled by default (`--no-copy` to disable)
-- Built-in multilingual UI (`en` and `zh-CN`)
+- Built-in multilingual UI (`en`, `zh-CN`, and `zh-TW`)
 - JSON locale catalogs with built-in i18n validation (`--check-i18n`)
 - Readable terminal UI with Rich rendering and plain-text fallback
 
@@ -111,7 +111,7 @@ Environment variables:
 | `LAZY_COMMIT_OPENAI_MODEL_NAME` | No | Model id used for both OpenAI-compatible and Gemini modes |
 | `LAZY_COMMIT_MAX_CONTEXT_SIZE` | No | Max context size in characters (must be positive integer) |
 | `LAZY_COMMIT_MAX_CONTEXT_TOKENS` | No | Max context tokens before compression strategy is applied |
-| `LAZY_COMMIT_LANG` | No | UI language (`en` default, `zh-CN` supported) |
+| `LAZY_COMMIT_LANG` | No | UI language (`en` default, `zh-CN`/`zh-TW` supported) |
 
 Compatibility aliases also supported:
 
@@ -178,7 +178,7 @@ Options:
 | `--count-tokens [TEXT]` | Count tokens for text and exit; omit `TEXT` to read from stdin |
 | `--token-model` | Model name used for tokenizer lookup (count mode + generation token estimation) |
 | `--token-encoding` | Explicit tokenizer encoding override (for example `o200k_base`) |
-| `--lang` | UI language override (for example `en`, `zh-CN`) |
+| `--lang` | UI language override (for example `en`, `zh-CN`, `zh-TW`) |
 | `--list-languages` | Print all supported UI languages and aliases, then exit |
 | `--check-i18n` | Validate locale catalogs (missing keys / placeholder mismatch), then exit |
 
@@ -204,12 +204,14 @@ Supported language values:
 
 - English: `en`, `en-US`, `en-GB`
 - Simplified Chinese: `zh`, `zh-CN`, `zh_Hans`, `zh-SG`, `cn`
+- Traditional Chinese (Taiwan): `zh-TW`, `zh_Hant`, `zh-Hant`, `zh-Hant-TW`, `zh-HK`, `zh-MO`, `tw`
 
 Examples:
 
 ```bash
 lazy-commit --lang zh-CN --help
 LAZY_COMMIT_LANG=zh-CN lazy-commit --count-tokens "你好"
+lazy-commit --lang zh-TW --help
 lazy-commit --list-languages
 lazy-commit --check-i18n
 ```
@@ -220,7 +222,7 @@ Notes:
 - In Chinese mode, commit confirmation accepts `是` in addition to `y`/`yes`.
 - Locale files live in `src/lazy_commit/locales/*.json`.
 - `--check-i18n` reports missing keys and placeholder mismatch issues for translation contributions.
-- `python3 scripts/i18n_sync.py --locale zh-CN` generates `*.pending.json` templates for untranslated keys.
+- `python3 scripts/i18n_sync.py --locale zh-CN --locale zh-TW` generates `*.pending.json` templates for untranslated keys.
 
 When generating commits, lazy-commit prints estimated prompt token usage.  
 If `--max-context-tokens` (or `LAZY_COMMIT_MAX_CONTEXT_TOKENS`) is set and exceeded, it compresses context in this order:
@@ -295,7 +297,7 @@ If no command is available, generation still succeeds and a warning is shown.
 - Clipboard warning:
   - Install a clipboard utility for your platform or use `--no-copy`.
 - Language did not switch:
-  - Prefer explicit `--lang zh-CN` to override environment values.
+  - Prefer explicit `--lang zh-CN` or `--lang zh-TW` to override environment values.
   - Unknown language codes automatically fall back to English.
 
 ## Development
@@ -327,7 +329,7 @@ Architecture details:
 - `src/lazy_commit/commit_message.py`: JSON parsing and normalization
 - `src/lazy_commit/clipboard.py`: cross-platform clipboard integration
 - `src/lazy_commit/i18n.py`: language detection and translation helpers
-- `src/lazy_commit/locales/`: locale catalogs (`en.json`, `zh-cn.json`)
+- `src/lazy_commit/locales/`: locale catalogs (`en.json`, `zh-cn.json`, `zh-tw.json`)
 - `src/lazy_commit/ui.py`: terminal rendering helpers
 
 ## License
