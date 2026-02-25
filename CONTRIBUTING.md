@@ -42,6 +42,8 @@ lazy-commit --help
 - `src/lazy_commit/ui.py`: terminal rendering helpers
 - `src/lazy_commit/clipboard.py`: clipboard integration
 - `src/lazy_commit/errors.py`: typed error definitions
+- `src/lazy_commit/i18n.py`: language normalization, translation loading, fallback rules
+- `src/lazy_commit/locales/`: editable locale catalogs (`*.json`)
 - `tests/`: unit tests by feature area
 - `docs/PROJECT_DESIGN.md`: architecture and workflow design notes
 
@@ -56,6 +58,25 @@ lazy-commit --help
   - constants: `UPPER_SNAKE_CASE`
 - Keep CLI flags in long-form kebab-case (for example, `--max-context-size`).
 - Keep side effects in orchestration layers (`cli.py`, `git_ops.py`) and keep parsing/normalization deterministic.
+
+## Translation (i18n) Contributions
+
+- Edit locale files in `src/lazy_commit/locales/*.json`.
+- Keep `en.json` as the baseline key set.
+- For non-English locale files:
+  - keep the same keys as `en.json`
+  - keep placeholder names identical (for example `{model_name}`, `{count}`)
+- Run translation health checks:
+
+```bash
+lazy-commit --check-i18n
+```
+
+- Use this command to inspect discoverable language aliases:
+
+```bash
+lazy-commit --list-languages
+```
 
 ## Testing
 

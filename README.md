@@ -2,7 +2,7 @@
 
 `lazy-commit` is a Python CLI that understands your local Git changes, asks an LLM for a structured Conventional Commit proposal, normalizes the result, and optionally runs `git commit` and `git push` in one flow.
 
-Current package version: `0.5.0`.
+Current package version: `0.6.0`.
 
 ## Highlights
 
@@ -13,6 +13,7 @@ Current package version: `0.5.0`.
 - Preview-first workflow with optional apply, stage-all, and push
 - Cross-platform clipboard copy enabled by default (`--no-copy` to disable)
 - Built-in multilingual UI (`en` and `zh-CN`)
+- JSON locale catalogs with built-in i18n validation (`--check-i18n`)
 - Readable terminal UI with Rich rendering and plain-text fallback
 
 ## Requirements
@@ -153,7 +154,7 @@ lazy-commit [--api-key API_KEY] [--base-url BASE_URL] [--model MODEL]
             [--max-context-size N] [--max-context-tokens N]
             [--count-tokens [TEXT]]
             [--token-model MODEL] [--token-encoding ENCODING]
-            [--lang LANG]
+            [--lang LANG] [--list-languages] [--check-i18n]
             [--apply] [--push] [--stage-all] [--yes]
             [--remote REMOTE] [--branch BRANCH]
             [--show-context] [--show-raw-response] [--copy | --no-copy]
@@ -178,6 +179,8 @@ Options:
 | `--token-model` | Model name used for tokenizer lookup (count mode + generation token estimation) |
 | `--token-encoding` | Explicit tokenizer encoding override (for example `o200k_base`) |
 | `--lang` | UI language override (for example `en`, `zh-CN`) |
+| `--list-languages` | Print all supported UI languages and aliases, then exit |
+| `--check-i18n` | Validate locale catalogs (missing keys / placeholder mismatch), then exit |
 
 When `--count-tokens` is used, the command exits after printing token metadata and does not require Git repository checks or API key configuration.
 
@@ -207,12 +210,16 @@ Examples:
 ```bash
 lazy-commit --lang zh-CN --help
 LAZY_COMMIT_LANG=zh-CN lazy-commit --count-tokens "你好"
+lazy-commit --list-languages
+lazy-commit --check-i18n
 ```
 
 Notes:
 
 - Unknown language values fall back to English.
 - In Chinese mode, commit confirmation accepts `是` in addition to `y`/`yes`.
+- Locale files live in `src/lazy_commit/locales/*.json`.
+- `--check-i18n` reports missing keys and placeholder mismatch issues for translation contributions.
 
 When generating commits, lazy-commit prints estimated prompt token usage.  
 If `--max-context-tokens` (or `LAZY_COMMIT_MAX_CONTEXT_TOKENS`) is set and exceeded, it compresses context in this order:
@@ -319,6 +326,7 @@ Architecture details:
 - `src/lazy_commit/commit_message.py`: JSON parsing and normalization
 - `src/lazy_commit/clipboard.py`: cross-platform clipboard integration
 - `src/lazy_commit/i18n.py`: language detection and translation helpers
+- `src/lazy_commit/locales/`: locale catalogs (`en.json`, `zh-cn.json`)
 - `src/lazy_commit/ui.py`: terminal rendering helpers
 
 ## License

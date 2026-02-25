@@ -6,6 +6,7 @@ from unittest.mock import patch
 from lazy_commit.i18n import (
     DEFAULT_LANGUAGE,
     ZH_CN_LANGUAGE,
+    available_languages,
     detect_language,
     get_language,
     is_affirmative,
@@ -13,6 +14,7 @@ from lazy_commit.i18n import (
     peek_cli_language,
     set_language,
     t,
+    translation_issues,
 )
 
 
@@ -48,6 +50,16 @@ class I18nTests(unittest.TestCase):
         self.assertEqual(t("cli.log.loading_settings"), "正在加载配置...")
         self.assertTrue(is_affirmative("是"))
         self.assertTrue(is_affirmative("yes"))
+
+    def test_available_languages_includes_aliases(self) -> None:
+        languages = {language.code: language for language in available_languages()}
+        self.assertIn(DEFAULT_LANGUAGE, languages)
+        self.assertIn(ZH_CN_LANGUAGE, languages)
+        self.assertIn("en-us", languages[DEFAULT_LANGUAGE].aliases)
+        self.assertIn("zh", languages[ZH_CN_LANGUAGE].aliases)
+
+    def test_bundled_catalog_has_no_i18n_issues(self) -> None:
+        self.assertEqual(translation_issues(), ())
 
 
 if __name__ == "__main__":

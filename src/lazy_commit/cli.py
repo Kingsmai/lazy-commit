@@ -11,11 +11,13 @@ from .config import load_settings
 from .errors import ConfigError, GitError, LLMError, LazyCommitError
 from .git_ops import GitClient
 from .i18n import (
+    available_languages,
     detect_language,
     is_affirmative,
     peek_cli_language,
     set_language,
     t,
+    translation_issues,
 )
 from .llm import LLMClient
 from .prompting import build_prompt
@@ -102,6 +104,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--lang",
         help=t("cli.help.lang"),
     )
+    parser.add_argument(
+        "--list-languages",
+        action="store_true",
+        help=t("cli.help.list_languages"),
+    )
+    parser.add_argument(
+        "--check-i18n",
+        action="store_true",
+        help=t("cli.help.check_i18n"),
+    )
     parser.set_defaults(copy=True)
     parser.add_argument(
         "--copy",
@@ -137,6 +149,38 @@ def run(argv: list[str] | None = None) -> int:
 
     args = build_parser().parse_args(raw_argv)
     set_language(args.lang)
+
+    if args.list_languages:
+        print(ui.rule("="))
+        print(ui.section(t("cli.section.supported_languages")))
+        for language in available_languages():
+            aliases = ", ".join(language.aliases) if language.aliases else t("ui.none")
+            print(
+                ui.info(
+                    t(
+                        "cli.log.language_entry",
+                        code=language.code,
+                        name=language.name,
+                        aliases=aliases,
+                    )
+                )
+            )
+        print(ui.rule("="))
+        return 0
+
+    if args.check_i18n:
+        issues = translation_issues()
+        print(ui.rule("="))
+        print(ui.section(t("cli.section.i18n_validation")))
+        if not issues:
+            print(ui.success(t("cli.log.i18n_no_issues")))
+            print(ui.rule("="))
+            return 0
+        for issue in issues:
+            print(ui.warn(t("cli.log.i18n_issue", issue=issue)))
+        print(ui.warn(t("cli.log.i18n_issues_found", count=len(issues))))
+        print(ui.rule("="))
+        return 1
 
     if args.count_tokens is not None:
         token_text = _resolve_token_input(args.count_tokens)

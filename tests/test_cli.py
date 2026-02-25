@@ -8,7 +8,7 @@ from lazy_commit.cli import run
 from lazy_commit.config import Settings
 from lazy_commit.errors import ConfigError
 from lazy_commit.git_ops import RepoSnapshot
-from lazy_commit.i18n import get_language, set_language
+from lazy_commit.i18n import LanguageInfo, get_language, set_language
 from lazy_commit.prompting import PromptPayload, PromptTokenUsage
 from lazy_commit.token_count import TokenCountResult
 
@@ -161,6 +161,48 @@ class CLIRunLoggingTests(unittest.TestCase):
         with patch("sys.stdin", fake_stdin):
             with self.assertRaises(ConfigError):
                 run(["--count-tokens"])
+
+    def test_run_list_languages_mode_skips_generation_flow(self) -> None:
+        languages = [
+            LanguageInfo(code="en", name="English", aliases=("en-gb", "en-us")),
+            LanguageInfo(code="zh-cn", name="简体中文", aliases=("cn", "zh")),
+        ]
+        with patch("lazy_commit.cli.available_languages", return_value=languages), patch(
+            "lazy_commit.cli.load_settings"
+        ) as load_settings_mock, patch(
+            "lazy_commit.cli.GitClient"
+        ) as git_client_cls, patch("builtins.print") as mocked_print:
+            exit_code = run(["--list-languages"])
+
+        self.assertEqual(exit_code, 0)
+        load_settings_mock.assert_not_called()
+        git_client_cls.assert_not_called()
+
+        lines = [str(call.args[0]) for call in mocked_print.call_args_list if call.args]
+        self._find_line_index(lines, "Supported Languages")
+        self._find_line_index(lines, "en (English) aliases: en-gb, en-us")
+        self._find_line_index(lines, "zh-cn (简体中文) aliases: cn, zh")
+
+    def test_run_check_i18n_reports_issues_and_exits_non_zero(self) -> None:
+        issues = (
+            "zh-cn: missing key 'cli.help.lang', falling back to en.",
+            "zh-cn: missing key 'ui.none', falling back to en.",
+        )
+        with patch("lazy_commit.cli.translation_issues", return_value=issues), patch(
+            "lazy_commit.cli.load_settings"
+        ) as load_settings_mock, patch(
+            "lazy_commit.cli.GitClient"
+        ) as git_client_cls, patch("builtins.print") as mocked_print:
+            exit_code = run(["--check-i18n"])
+
+        self.assertEqual(exit_code, 1)
+        load_settings_mock.assert_not_called()
+        git_client_cls.assert_not_called()
+
+        lines = [str(call.args[0]) for call in mocked_print.call_args_list if call.args]
+        self._find_line_index(lines, "I18n Validation")
+        self._find_line_index(lines, "Issue: zh-cn: missing key 'cli.help.lang', falling back to en.")
+        self._find_line_index(lines, "Found 2 i18n issue(s).")
 
     def test_run_logs_token_budget_and_compression_when_available(self) -> None:
         settings = Settings(

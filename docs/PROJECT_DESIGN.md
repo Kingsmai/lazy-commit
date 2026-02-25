@@ -70,8 +70,11 @@ Code modules:
   - auto-copy generated message
 - `src/lazy_commit/i18n.py`
   - language normalization/detection
-  - translation lookup and fallback behavior
+  - locale loading, translation lookup, and fallback behavior
+  - placeholder/key consistency validation for locale catalogs
   - localized confirmation input handling
+- `src/lazy_commit/locales/`
+  - editable JSON locale catalogs (`en.json`, `zh-cn.json`)
 - `src/lazy_commit/ui.py`
   - consistent, readable terminal rendering
 - `src/lazy_commit/cli.py`

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lazy-commit"
-version = "0.5.1"
+version = "0.6.0"
 description = "Understand git changes and generate normalized commit messages with one-click apply/push."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,3 +22,6 @@ lazy-commit = "lazy_commit.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lazy_commit"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/lazy_commit/locales" = "lazy_commit/locales"
