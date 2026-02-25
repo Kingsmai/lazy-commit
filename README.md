@@ -307,6 +307,7 @@ python3 -m unittest tests.test_git_ops -v
 Architecture details:
 
 - `docs/PROJECT_DESIGN.md`
+- `CONTRIBUTING.md`
 
 ## Source Layout
 
