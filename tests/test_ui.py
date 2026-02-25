@@ -4,9 +4,17 @@ import unittest
 from unittest.mock import patch
 
 from lazy_commit import ui
+from lazy_commit.i18n import get_language, set_language
 
 
 class UIFallbackRenderingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._original_language = get_language()
+        set_language("en")
+
+    def tearDown(self) -> None:
+        set_language(self._original_language)
+
     def test_render_generation_summary_contains_main_fields(self) -> None:
         with patch("lazy_commit.ui._RICH_AVAILABLE", False), patch(
             "lazy_commit.ui.use_color", return_value=False

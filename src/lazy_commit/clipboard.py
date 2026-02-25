@@ -9,6 +9,8 @@ import subprocess
 from dataclasses import dataclass
 from typing import Callable, Mapping
 
+from .i18n import t
+
 
 @dataclass(frozen=True)
 class CopyResult:
@@ -69,9 +71,9 @@ def copy_text(
     if not commands:
         return CopyResult(
             ok=False,
-            detail=(
-                "Clipboard command not found. Install one of: "
-                "pbcopy/clip/wl-copy/xclip/xsel."
+            detail=t(
+                "clipboard.error.command_not_found",
+                commands="pbcopy/clip/wl-copy/xclip/xsel",
             ),
         )
 
@@ -85,7 +87,10 @@ def copy_text(
             check=False,
         )
         if completed.returncode == 0:
-            return CopyResult(ok=True, detail=f"Copied to clipboard via {' '.join(cmd)}.")
+            return CopyResult(
+                ok=True,
+                detail=t("clipboard.success.copied_via", command=" ".join(cmd)),
+            )
 
         stderr = (completed.stderr or "").strip()
         failures.append(f"{' '.join(cmd)} ({stderr or f'exit={completed.returncode}'})")
@@ -93,9 +98,8 @@ def copy_text(
     return CopyResult(
         ok=False,
         detail=(
-            "Clipboard copy failed for all commands: " + ", ".join(failures)
+            t("clipboard.error.copy_failed_all", failures=", ".join(failures))
             if failures
-            else "Clipboard copy failed."
+            else t("clipboard.error.copy_failed")
         ),
     )
-

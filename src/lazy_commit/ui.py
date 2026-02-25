@@ -7,6 +7,8 @@ import shutil
 import sys
 from typing import Any
 
+from .i18n import t
+
 RESET = "\033[0m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
@@ -82,19 +84,19 @@ def _status(level: str, text: str, ansi_code: str, rich_style: str) -> str:
 
 
 def info(text: str) -> str:
-    return _status("INFO", text, DIM, "cyan")
+    return _status(t("ui.level.info"), text, DIM, "cyan")
 
 
 def success(text: str) -> str:
-    return _status("OK", text, GREEN, "green")
+    return _status(t("ui.level.ok"), text, GREEN, "green")
 
 
 def warn(text: str) -> str:
-    return _status("WARN", text, YELLOW, "yellow")
+    return _status(t("ui.level.warn"), text, YELLOW, "yellow")
 
 
 def error(text: str) -> str:
-    return _status("ERROR", text, RED, "bold red")
+    return _status(t("ui.level.error"), text, RED, "bold red")
 
 
 def key_value(label: str, value: str) -> str:
@@ -109,15 +111,15 @@ def render_generation_summary(
     provider: str, model: str, branch: str, file_count: int
 ) -> str:
     rows = [
-        ("Provider", provider),
-        ("Model", model),
-        ("Branch", branch),
-        ("Files", str(file_count)),
+        (t("ui.field.provider"), provider),
+        (t("ui.field.model"), model),
+        (t("ui.field.branch"), branch),
+        (t("ui.field.files"), str(file_count)),
     ]
     if _RICH_AVAILABLE:
         table = Table(show_header=False, box=box.SIMPLE, pad_edge=False)
-        table.add_column("Field", style="bold cyan", no_wrap=True)
-        table.add_column("Value", style="white")
+        table.add_column(t("ui.table.field"), style="bold cyan", no_wrap=True)
+        table.add_column(t("ui.table.value"), style="white")
         for label, value in rows:
             table.add_row(Text(label), Text(value))
         rendered = _capture_renderable(table)
@@ -128,11 +130,11 @@ def render_generation_summary(
 
 def render_files(files: list[str]) -> str:
     if not files:
-        return "  (none)"
+        return f"  {t('ui.none')}"
     if _RICH_AVAILABLE:
         table = Table(show_header=True, box=box.SIMPLE_HEAD, pad_edge=False)
         table.add_column("#", justify="right", style="bold cyan", no_wrap=True)
-        table.add_column("Path", style="white")
+        table.add_column(t("ui.table.path"), style="white")
         for index, path in enumerate(files, start=1):
             table.add_row(str(index), Text(path))
         rendered = _capture_renderable(table)
@@ -146,7 +148,7 @@ def render_message_box(message: str) -> str:
     if _RICH_AVAILABLE:
         panel = Panel(
             Text(body),
-            title="Commit Message",
+            title=t("ui.commit_message_title"),
             title_align="left",
             border_style="green",
             box=box.ROUNDED,

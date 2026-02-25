@@ -2,7 +2,7 @@
 
 `lazy-commit` is a Python CLI that understands your local Git changes, asks an LLM for a structured Conventional Commit proposal, normalizes the result, and optionally runs `git commit` and `git push` in one flow.
 
-Current package version: `0.4.0`.
+Current package version: `0.5.0`.
 
 ## Highlights
 
@@ -12,6 +12,7 @@ Current package version: `0.4.0`.
 - Deterministic normalization of commit message fields
 - Preview-first workflow with optional apply, stage-all, and push
 - Cross-platform clipboard copy enabled by default (`--no-copy` to disable)
+- Built-in multilingual UI (`en` and `zh-CN`)
 - Readable terminal UI with Rich rendering and plain-text fallback
 
 ## Requirements
@@ -60,6 +61,7 @@ export LAZY_COMMIT_API_KEY="sk-..."
 export LAZY_COMMIT_BASE_URL="https://api.openai.com/v1"
 export LAZY_COMMIT_OPENAI_MODEL_NAME="gpt-4.1-mini"
 export LAZY_COMMIT_MAX_CONTEXT_SIZE="12000"
+export LAZY_COMMIT_LANG="en"
 ```
 
 Gemini setup:
@@ -69,6 +71,7 @@ export LAZY_COMMIT_API_KEY="AIza..."
 export LAZY_COMMIT_BASE_URL="https://generativelanguage.googleapis.com/v1beta"
 export LAZY_COMMIT_OPENAI_MODEL_NAME="gemini-2.0-flash"
 export LAZY_COMMIT_MAX_CONTEXT_SIZE="12000"
+export LAZY_COMMIT_LANG="zh-CN"
 ```
 
 ### 2. Generate preview only
@@ -107,6 +110,7 @@ Environment variables:
 | `LAZY_COMMIT_OPENAI_MODEL_NAME` | No | Model id used for both OpenAI-compatible and Gemini modes |
 | `LAZY_COMMIT_MAX_CONTEXT_SIZE` | No | Max context size in characters (must be positive integer) |
 | `LAZY_COMMIT_MAX_CONTEXT_TOKENS` | No | Max context tokens before compression strategy is applied |
+| `LAZY_COMMIT_LANG` | No | UI language (`en` default, `zh-CN` supported) |
 
 Compatibility aliases also supported:
 
@@ -120,6 +124,7 @@ CLI flags override environment values at runtime:
 - `--model`
 - `--max-context-size`
 - `--max-context-tokens`
+- `--lang`
 
 ## Provider Detection and Defaults
 
@@ -148,6 +153,7 @@ lazy-commit [--api-key API_KEY] [--base-url BASE_URL] [--model MODEL]
             [--max-context-size N] [--max-context-tokens N]
             [--count-tokens [TEXT]]
             [--token-model MODEL] [--token-encoding ENCODING]
+            [--lang LANG]
             [--apply] [--push] [--stage-all] [--yes]
             [--remote REMOTE] [--branch BRANCH]
             [--show-context] [--show-raw-response] [--copy | --no-copy]
@@ -171,8 +177,42 @@ Options:
 | `--count-tokens [TEXT]` | Count tokens for text and exit; omit `TEXT` to read from stdin |
 | `--token-model` | Model name used for tokenizer lookup (count mode + generation token estimation) |
 | `--token-encoding` | Explicit tokenizer encoding override (for example `o200k_base`) |
+| `--lang` | UI language override (for example `en`, `zh-CN`) |
 
 When `--count-tokens` is used, the command exits after printing token metadata and does not require Git repository checks or API key configuration.
+
+## Interface Language
+
+`lazy-commit` supports localized CLI text for:
+
+- help/usage output
+- progress logs
+- section titles and UI labels
+- handled error messages
+- clipboard status messages
+
+Language resolution order:
+
+1. `--lang` (highest priority)
+2. `LAZY_COMMIT_LANG`
+3. English (`en`, fallback default)
+
+Supported language values:
+
+- English: `en`, `en-US`, `en-GB`
+- Simplified Chinese: `zh`, `zh-CN`, `zh_Hans`, `zh-SG`, `cn`
+
+Examples:
+
+```bash
+lazy-commit --lang zh-CN --help
+LAZY_COMMIT_LANG=zh-CN lazy-commit --count-tokens "你好"
+```
+
+Notes:
+
+- Unknown language values fall back to English.
+- In Chinese mode, commit confirmation accepts `是` in addition to `y`/`yes`.
 
 When generating commits, lazy-commit prints estimated prompt token usage.  
 If `--max-context-tokens` (or `LAZY_COMMIT_MAX_CONTEXT_TOKENS`) is set and exceeded, it compresses context in this order:
@@ -246,6 +286,9 @@ If no command is available, generation still succeeds and a warning is shown.
   - Gemini should use `https://generativelanguage.googleapis.com/v1beta`.
 - Clipboard warning:
   - Install a clipboard utility for your platform or use `--no-copy`.
+- Language did not switch:
+  - Prefer explicit `--lang zh-CN` to override environment values.
+  - Unknown language codes automatically fall back to English.
 
 ## Development
 
@@ -274,6 +317,7 @@ Architecture details:
 - `src/lazy_commit/llm.py`: provider-specific API calls
 - `src/lazy_commit/commit_message.py`: JSON parsing and normalization
 - `src/lazy_commit/clipboard.py`: cross-platform clipboard integration
+- `src/lazy_commit/i18n.py`: language detection and translation helpers
 - `src/lazy_commit/ui.py`: terminal rendering helpers
 
 ## License

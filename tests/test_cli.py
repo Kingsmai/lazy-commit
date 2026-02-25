@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import unittest
 from unittest.mock import Mock, patch
 
@@ -7,6 +8,7 @@ from lazy_commit.cli import run
 from lazy_commit.config import Settings
 from lazy_commit.errors import ConfigError
 from lazy_commit.git_ops import RepoSnapshot
+from lazy_commit.i18n import get_language, set_language
 from lazy_commit.prompting import PromptPayload, PromptTokenUsage
 from lazy_commit.token_count import TokenCountResult
 
@@ -17,6 +19,16 @@ class _Proposal:
 
 
 class CLIRunLoggingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._original_language = get_language()
+        set_language("en")
+        self._env_patcher = patch.dict(os.environ, {"LAZY_COMMIT_LANG": "en"}, clear=False)
+        self._env_patcher.start()
+
+    def tearDown(self) -> None:
+        self._env_patcher.stop()
+        set_language(self._original_language)
+
     def _find_line_index(self, lines: list[str], fragment: str) -> int:
         for idx, line in enumerate(lines):
             if fragment in line:
@@ -210,6 +222,38 @@ class CLIRunLoggingTests(unittest.TestCase):
         self._find_line_index(lines, "Estimated prompt tokens:")
         self._find_line_index(lines, "Context token budget:")
         self._find_line_index(lines, "compression applied")
+
+    def test_run_supports_chinese_logs_with_lang_flag(self) -> None:
+        settings = Settings(
+            api_key="test-key",
+            base_url="https://api.openai.com/v1",
+            model_name="gpt-4.1-mini",
+            max_context_size=12000,
+            provider="openai",
+        )
+        snapshot = RepoSnapshot(
+            branch="main",
+            status_short="",
+            staged_diff="",
+            unstaged_diff="",
+            untracked_files="",
+            changed_files=[],
+            recent_commits="chore: baseline",
+        )
+
+        with patch("lazy_commit.cli.load_settings", return_value=settings), patch(
+            "lazy_commit.cli.GitClient"
+        ) as git_client_cls, patch("builtins.print") as mocked_print:
+            git_client = git_client_cls.return_value
+            git_client.snapshot.return_value = snapshot
+
+            exit_code = run(["--lang", "zh-CN", "--no-copy"])
+
+        self.assertEqual(exit_code, 0)
+        lines = [str(call.args[0]) for call in mocked_print.call_args_list if call.args]
+        self._find_line_index(lines, "正在加载配置...")
+        self._find_line_index(lines, "正在检查 Git 仓库...")
+        self._find_line_index(lines, "未发现本地变更，无需生成提交信息。")
 
 
 if __name__ == "__main__":

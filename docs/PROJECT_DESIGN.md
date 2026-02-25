@@ -18,13 +18,15 @@ The tool is centered around these environment variables:
 - `LAZY_COMMIT_API_KEY`
 - `LAZY_COMMIT_BASE_URL`
 - `LAZY_COMMIT_OPENAI_MODEL_NAME`
+- `LAZY_COMMIT_LANG`
 
-CLI flags can override all of them at runtime.
+CLI flags can override all of them at runtime (including `--lang`).
 
 ## 3. End-to-End Workflow
 
-1. Detect Git repository and collect change data.
-2. Build bounded context from:
+1. Resolve UI language from `--lang` / `LAZY_COMMIT_LANG` with English fallback.
+2. Detect Git repository and collect change data.
+3. Build bounded context from:
    - branch name
    - changed files
    - status
@@ -32,18 +34,18 @@ CLI flags can override all of them at runtime.
    - unstaged diff
    - untracked files
    - recent commit subjects
-3. Send prompt to LLM provider (OpenAI or Gemini).
-4. Require JSON output with strict schema.
-5. Normalize and validate:
+4. Send prompt to LLM provider (OpenAI or Gemini).
+5. Require JSON output with strict schema.
+6. Normalize and validate:
    - fallback unknown type to `chore`
    - normalize scope/subject/body
    - enforce header width and format
-6. Show preview.
-7. Optional:
+7. Show preview.
+8. Optional:
    - stage all
    - commit
    - push
-8. Auto-copy generated message to clipboard (unless disabled).
+9. Auto-copy generated message to clipboard (unless disabled).
 
 ## 4. Architecture
 
@@ -66,6 +68,10 @@ Code modules:
 - `src/lazy_commit/clipboard.py`
   - cross-platform clipboard command fallback
   - auto-copy generated message
+- `src/lazy_commit/i18n.py`
+  - language normalization/detection
+  - translation lookup and fallback behavior
+  - localized confirmation input handling
 - `src/lazy_commit/ui.py`
   - consistent, readable terminal rendering
 - `src/lazy_commit/cli.py`
@@ -88,6 +94,7 @@ This keeps setup simple while still supporting both APIs.
 - Commit only runs when staged changes exist (or user passes `--stage-all`).
 - Interactive confirmation before commit unless `--yes`.
 - Explicit error types for config/git/model failures.
+- Unknown locale values gracefully fall back to English.
 
 ## 7. Extensibility
 
