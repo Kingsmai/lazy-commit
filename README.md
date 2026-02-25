@@ -220,6 +220,7 @@ Notes:
 - In Chinese mode, commit confirmation accepts `是` in addition to `y`/`yes`.
 - Locale files live in `src/lazy_commit/locales/*.json`.
 - `--check-i18n` reports missing keys and placeholder mismatch issues for translation contributions.
+- `python3 scripts/i18n_sync.py --locale zh-CN` generates `*.pending.json` templates for untranslated keys.
 
 When generating commits, lazy-commit prints estimated prompt token usage.  
 If `--max-context-tokens` (or `LAZY_COMMIT_MAX_CONTEXT_TOKENS`) is set and exceeded, it compresses context in this order:

@@ -72,6 +72,12 @@ lazy-commit --help
 lazy-commit --check-i18n
 ```
 
+- Generate pending translation templates by diffing against `en.json`:
+
+```bash
+python3 scripts/i18n_sync.py --locale zh-CN
+```
+
 - Use this command to inspect discoverable language aliases:
 
 ```bash
