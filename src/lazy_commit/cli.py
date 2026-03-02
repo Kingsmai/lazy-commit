@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from dataclasses import replace
 
 from .clipboard import copy_text
 from .commit_message import parse_commit_proposal
@@ -80,6 +81,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--yes",
         action="store_true",
         help=t("cli.help.yes"),
+    )
+    parser.add_argument(
+        "--wip",
+        action="store_true",
+        help=t("cli.help.wip"),
     )
     parser.add_argument(
         "--remote",
@@ -212,6 +218,8 @@ def run(argv: list[str] | None = None) -> int:
         max_context_size=args.max_context_size,
         max_context_tokens=args.max_context_tokens,
     )
+    if args.wip:
+        print(ui.info(t("cli.log.using_wip_message")))
 
     print(ui.info(t("cli.log.checking_repo")))
     git = GitClient()
@@ -289,6 +297,8 @@ def run(argv: list[str] | None = None) -> int:
 
     print(ui.info(t("cli.log.parsing_model_response")))
     proposal = parse_commit_proposal(llm_response.text)
+    if args.wip:
+        proposal = replace(proposal, commit_type="wip")
     final_message = proposal.to_commit_message()
 
     print(ui.rule("="))

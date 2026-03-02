@@ -35,6 +35,7 @@ CLI flags can override all of them at runtime (including `--lang`).
    - untracked files
    - recent commit subjects
 4. Send prompt to LLM provider (OpenAI or Gemini).
+   - when `--wip` is set, keep this flow and force normalized commit type to `wip`.
 5. Require JSON output with strict schema.
 6. Normalize and validate:
    - fallback unknown type to `chore`
@@ -94,6 +95,7 @@ This keeps setup simple while still supporting both APIs.
 
 - If no changes exist, exit cleanly.
 - `--push` requires `--apply`.
+- `--wip` still depends on API/model generation, and only forces final type to `wip`.
 - Commit only runs when staged changes exist (or user passes `--stage-all`).
 - Interactive confirmation before commit unless `--yes`.
 - Explicit error types for config/git/model failures.

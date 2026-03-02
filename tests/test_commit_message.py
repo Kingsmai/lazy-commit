@@ -36,6 +36,20 @@ class ParseCommitProposalTests(unittest.TestCase):
         proposal = parse_commit_proposal(raw)
         self.assertEqual(proposal.commit_type, "chore")
 
+    def test_wip_type_is_preserved(self) -> None:
+        raw = """
+        {
+          "type": "wip",
+          "scope": "",
+          "subject": "checkpoint before refactor",
+          "body": [],
+          "breaking_change": false
+        }
+        """
+        proposal = parse_commit_proposal(raw)
+        self.assertEqual(proposal.commit_type, "wip")
+        self.assertIn("wip: checkpoint before refactor", proposal.to_commit_message())
+
     def test_reject_empty_subject(self) -> None:
         raw = """
         {
@@ -52,4 +66,3 @@ class ParseCommitProposalTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -2,7 +2,7 @@
 
 `lazy-commit` is a Python CLI that understands your local Git changes, asks an LLM for a structured Conventional Commit proposal, normalizes the result, and optionally runs `git commit` and `git push` in one flow.
 
-Current package version: `0.7.0`.
+Current package version: `0.8.0`.
 
 ## Highlights
 
@@ -11,6 +11,7 @@ Current package version: `0.7.0`.
 - Standalone token counting mode (`--count-tokens`) with model-aware encoding lookup
 - Deterministic normalization of commit message fields
 - Preview-first workflow with optional apply, stage-all, and push
+- WIP mode (`--wip`) that keeps LLM generation and forces commit type to `wip`
 - Cross-platform clipboard copy enabled by default (`--no-copy` to disable)
 - Built-in multilingual UI (`en`, `zh-CN`, and `zh-TW`)
 - JSON locale catalogs with built-in i18n validation (`--check-i18n`)
@@ -100,6 +101,13 @@ lazy-commit --count-tokens "feat(cli): add token count mode"
 echo "你好，世界" | lazy-commit --count-tokens --token-model gpt-4.1-mini
 ```
 
+### 6. Generate WIP message with LLM (force `wip` type)
+
+```bash
+lazy-commit --wip
+lazy-commit --wip --apply --stage-all --yes
+```
+
 ## Configuration Reference
 
 Environment variables:
@@ -155,7 +163,7 @@ lazy-commit [--api-key API_KEY] [--base-url BASE_URL] [--model MODEL]
             [--count-tokens [TEXT]]
             [--token-model MODEL] [--token-encoding ENCODING]
             [--lang LANG] [--list-languages] [--check-i18n]
-            [--apply] [--push] [--stage-all] [--yes]
+            [--apply] [--push] [--stage-all] [--yes] [--wip]
             [--remote REMOTE] [--branch BRANCH]
             [--show-context] [--show-raw-response] [--copy | --no-copy]
 ```
@@ -168,6 +176,7 @@ Options:
 | `--push` | Push after commit (requires `--apply`) |
 | `--stage-all` | Stage tracked and untracked changes before commit |
 | `--yes` | Skip confirmation prompt when `--apply` is used |
+| `--wip` | Keep LLM generation, but force normalized commit type to `wip` |
 | `--max-context-tokens` | Token budget for model context; triggers automatic compression when exceeded |
 | `--remote` | Remote name for push (default `origin`) |
 | `--branch` | Branch name for push (default current branch) |
@@ -254,9 +263,12 @@ If `--max-context-tokens` (or `LAZY_COMMIT_MAX_CONTEXT_TOKENS`) is set and excee
 
 If there are no local changes, the command exits cleanly after snapshot collection.
 
+When `--wip` is used, lazy-commit still runs the normal LLM flow (context building + model generation),
+then forces the normalized commit `type` to `wip` before preview/commit.
+
 ## Commit Message Normalization Rules
 
-- Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
+- Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `wip`, `revert`
 - Unknown `type` is normalized to `chore`
 - Invalid `scope` is dropped (scope pattern: `[a-zA-Z0-9._/-]+`)
 - Subject is whitespace-normalized and trailing `.` is removed

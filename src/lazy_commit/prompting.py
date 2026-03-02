@@ -12,7 +12,7 @@ from .token_count import DEFAULT_TOKEN_MODEL, create_token_counter
 SYSTEM_PROMPT = """You are an expert software engineer writing high-quality Conventional Commit messages.
 Analyze the git changes and return ONLY valid JSON with this schema:
 {
-  "type": "feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert",
+  "type": "feat|fix|docs|style|refactor|perf|test|build|ci|chore|wip|revert",
   "scope": "optional short scope or empty string",
   "subject": "imperative mood summary, no trailing period",
   "body": ["optional detail line 1", "optional detail line 2"],

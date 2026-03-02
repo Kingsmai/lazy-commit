@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from lazy_commit.cli import run
+from lazy_commit.commit_message import CommitProposal
 from lazy_commit.config import Settings
 from lazy_commit.errors import ConfigError
 from lazy_commit.git_ops import RepoSnapshot
@@ -161,6 +162,113 @@ class CLIRunLoggingTests(unittest.TestCase):
         with patch("sys.stdin", fake_stdin):
             with self.assertRaises(ConfigError):
                 run(["--count-tokens"])
+
+    def test_run_wip_mode_uses_model_generation_and_forces_wip_type(self) -> None:
+        settings = Settings(
+            api_key="test-key",
+            base_url="https://api.openai.com/v1",
+            model_name="gpt-4.1-mini",
+            max_context_size=12000,
+            provider="openai",
+        )
+        snapshot = RepoSnapshot(
+            branch="main",
+            status_short="M src/lazy_commit/cli.py",
+            staged_diff="",
+            unstaged_diff="diff --git a/src/lazy_commit/cli.py b/src/lazy_commit/cli.py",
+            untracked_files="",
+            changed_files=["src/lazy_commit/cli.py"],
+            recent_commits="chore: baseline",
+        )
+        prompt_payload = PromptPayload(system="system", user="user", context="context")
+        proposal = CommitProposal(
+            commit_type="feat",
+            scope="cli",
+            subject="checkpoint parser update",
+            body_lines=[],
+            breaking_change=False,
+        )
+
+        with patch("lazy_commit.cli.load_settings", return_value=settings) as load_settings_mock, patch(
+            "lazy_commit.cli.GitClient"
+        ) as git_client_cls, patch(
+            "lazy_commit.cli.build_prompt", return_value=prompt_payload
+        ) as build_prompt_mock, patch(
+            "lazy_commit.cli.LLMClient"
+        ) as llm_client_cls, patch(
+            "lazy_commit.cli.parse_commit_proposal", return_value=proposal
+        ) as parse_mock, patch("builtins.print") as mocked_print:
+            git_client = git_client_cls.return_value
+            git_client.snapshot.return_value = snapshot
+            llm_client = llm_client_cls.return_value
+            llm_client.complete.return_value.text = (
+                '{"type":"feat","scope":"cli","subject":"checkpoint parser update","body":[],"breaking_change":false}'
+            )
+
+            exit_code = run(["--wip", "--no-copy"])
+
+        self.assertEqual(exit_code, 0)
+        load_settings_mock.assert_called_once()
+        build_prompt_mock.assert_called_once()
+        llm_client_cls.assert_called_once()
+        parse_mock.assert_called_once()
+
+        lines = [str(call.args[0]) for call in mocked_print.call_args_list if call.args]
+        self._find_line_index(lines, "Loading settings...")
+        self._find_line_index(lines, "WIP mode enabled; forcing generated commit type to wip.")
+        self._find_line_index(lines, "wip(cli): checkpoint parser update")
+
+    def test_run_wip_mode_apply_creates_commit(self) -> None:
+        settings = Settings(
+            api_key="test-key",
+            base_url="https://api.openai.com/v1",
+            model_name="gpt-4.1-mini",
+            max_context_size=12000,
+            provider="openai",
+        )
+        snapshot = RepoSnapshot(
+            branch="main",
+            status_short="M src/lazy_commit/cli.py",
+            staged_diff="diff --git a/src/lazy_commit/cli.py b/src/lazy_commit/cli.py",
+            unstaged_diff="",
+            untracked_files="",
+            changed_files=["src/lazy_commit/cli.py"],
+            recent_commits="chore: baseline",
+        )
+        prompt_payload = PromptPayload(system="system", user="user", context="context")
+        proposal = CommitProposal(
+            commit_type="fix",
+            scope="",
+            subject="checkpoint before merge",
+            body_lines=[],
+            breaking_change=False,
+        )
+
+        with patch("lazy_commit.cli.load_settings", return_value=settings) as load_settings_mock, patch(
+            "lazy_commit.cli.GitClient"
+        ) as git_client_cls, patch(
+            "lazy_commit.cli.build_prompt", return_value=prompt_payload
+        ) as build_prompt_mock, patch(
+            "lazy_commit.cli.LLMClient"
+        ) as llm_client_cls, patch(
+            "lazy_commit.cli.parse_commit_proposal", return_value=proposal
+        ) as parse_mock:
+            git_client = git_client_cls.return_value
+            git_client.snapshot.return_value = snapshot
+            llm_client = llm_client_cls.return_value
+            llm_client.complete.return_value.text = (
+                '{"type":"fix","scope":"","subject":"checkpoint before merge","body":[],"breaking_change":false}'
+            )
+            git_client.commit.return_value = "[main abc123] wip: checkpoint before merge"
+
+            exit_code = run(["--wip", "--apply", "--yes", "--no-copy"])
+
+        self.assertEqual(exit_code, 0)
+        load_settings_mock.assert_called_once()
+        build_prompt_mock.assert_called_once()
+        llm_client_cls.assert_called_once()
+        parse_mock.assert_called_once()
+        git_client.commit.assert_called_once_with("wip: checkpoint before merge\n")
 
     def test_run_list_languages_mode_skips_generation_flow(self) -> None:
         languages = [

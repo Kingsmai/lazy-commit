@@ -20,6 +20,7 @@ VALID_TYPES = {
     "build",
     "ci",
     "chore",
+    "wip",
     "revert",
 }
 MAX_HEADER_LEN = 72
@@ -145,4 +146,3 @@ def parse_commit_proposal(raw: str) -> CommitProposal:
         body_lines=body_lines,
         breaking_change=breaking_change,
     )
-
