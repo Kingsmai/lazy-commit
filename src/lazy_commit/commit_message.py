@@ -46,10 +46,9 @@ class CommitProposal:
         if len(header) <= MAX_HEADER_LEN:
             return header
 
-        # Keep type/scope stable; trim the subject to fit Conventional Commit width.
-        keep = max(10, MAX_HEADER_LEN - len(prefix) - 2)
-        trimmed_subject = self.subject[: keep - 1].rstrip()
-        return f"{prefix}: {trimmed_subject}"
+        # Avoid lossy truncation: keep the full subject even when it exceeds
+        # the conventional header recommendation.
+        return header
 
     def to_commit_message(self) -> str:
         chunks = [self.header]

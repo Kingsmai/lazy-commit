@@ -63,6 +63,22 @@ class ParseCommitProposalTests(unittest.TestCase):
         with self.assertRaises(Exception):
             parse_commit_proposal(raw)
 
+    def test_preserve_long_subject_without_truncation(self) -> None:
+        raw = """
+        {
+          "type": "feat",
+          "scope": "cli",
+          "subject": "add support for preserving complete generated subject when it exceeds conventional header width",
+          "body": [],
+          "breaking_change": false
+        }
+        """
+        proposal = parse_commit_proposal(raw)
+        self.assertEqual(
+            proposal.header,
+            "feat(cli): add support for preserving complete generated subject when it exceeds conventional header width",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
