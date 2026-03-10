@@ -205,3 +205,24 @@ def render_history(entries: list[HistoryEntry]) -> str:
             )
         )
     return "\n\n".join(blocks)
+
+
+def render_history_detail(entry: HistoryEntry) -> str:
+    rows = [
+        (t("ui.field.generated_at"), format_history_timestamp(entry.generated_at)),
+        (t("ui.field.project"), entry.project_name),
+        (t("ui.field.branch"), entry.branch),
+        (t("ui.field.path"), entry.repo_path),
+        (t("ui.field.provider"), entry.provider or t("ui.none")),
+        (t("ui.field.model"), entry.model_name or t("ui.none")),
+    ]
+    if _RICH_AVAILABLE:
+        table = Table(show_header=False, box=box.SIMPLE, pad_edge=False)
+        table.add_column(t("ui.table.field"), style="bold cyan", no_wrap=True)
+        table.add_column(t("ui.table.value"), style="white")
+        for label, value in rows:
+            table.add_row(Text(label), Text(value))
+        rendered = _capture_renderable(table)
+        if rendered is not None:
+            return rendered
+    return "\n".join(key_value(label, value) for label, value in rows)

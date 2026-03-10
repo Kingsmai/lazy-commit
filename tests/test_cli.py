@@ -150,6 +150,8 @@ class CLIRunLoggingTests(unittest.TestCase):
         ]
 
         with patch("lazy_commit.cli.load_history_entries", return_value=entries) as load_history_mock, patch(
+            "lazy_commit.cli._history_browser_enabled", return_value=False
+        ), patch(
             "lazy_commit.cli.load_settings"
         ) as load_settings_mock, patch(
             "lazy_commit.cli.GitClient"
@@ -168,6 +170,47 @@ class CLIRunLoggingTests(unittest.TestCase):
         self._find_line_index(lines, "Query")
         self._find_line_index(lines, "Entries")
         self._find_line_index(lines, "history rows")
+
+    def test_run_history_browser_supports_view_and_copy(self) -> None:
+        entries = [
+            HistoryEntry(
+                generated_at="2026-03-10T12:34:56+08:00",
+                project_name="lazy-commit",
+                repo_path="/tmp/lazy-commit",
+                branch="main",
+                commit_message="feat(cli): add history browser\n\nshow entry details",
+                changed_files=("src/lazy_commit/cli.py",),
+                provider="openai",
+                model_name="gpt-4.1-mini",
+            )
+        ]
+
+        with patch("lazy_commit.cli.load_history_entries", return_value=entries), patch(
+            "lazy_commit.cli._history_browser_enabled", return_value=True
+        ), patch(
+            "lazy_commit.ui.render_history", return_value="history rows"
+        ), patch(
+            "lazy_commit.ui.render_history_detail", return_value="detail rows"
+        ) as render_detail_mock, patch(
+            "lazy_commit.cli.copy_text"
+        ) as copy_text_mock, patch(
+            "builtins.input", side_effect=["1", "c 1", "q"]
+        ), patch("builtins.print") as mocked_print:
+            copy_text_mock.return_value.ok = True
+            copy_text_mock.return_value.detail = "Copied to clipboard via clip."
+
+            exit_code = run(["--history"])
+
+        self.assertEqual(exit_code, 0)
+        render_detail_mock.assert_called_once_with(entries[0])
+        copy_text_mock.assert_called_once_with(
+            "feat(cli): add history browser\n\nshow entry details"
+        )
+
+        lines = [str(call.args[0]) for call in mocked_print.call_args_list if call.args]
+        self._find_line_index(lines, "History browser: enter a number to view details")
+        self._find_line_index(lines, "detail rows")
+        self._find_line_index(lines, "Copied to clipboard via clip.")
 
     def test_run_count_tokens_mode_skips_generation_flow(self) -> None:
         token_result = TokenCountResult(

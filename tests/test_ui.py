@@ -63,6 +63,27 @@ class UIFallbackRenderingTests(unittest.TestCase):
         self.assertIn("Project: lazy-commit", rendered)
         self.assertIn("Path: /tmp/lazy-commit", rendered)
 
+    def test_render_history_detail_fallback_contains_metadata(self) -> None:
+        entry = HistoryEntry(
+            generated_at="2026-03-10T12:34:56+08:00",
+            project_name="lazy-commit",
+            repo_path="/tmp/lazy-commit",
+            branch="main",
+            commit_message="feat(cli): add history browser",
+            changed_files=("src/lazy_commit/cli.py",),
+            provider="openai",
+            model_name="gpt-4.1-mini",
+        )
+        with patch("lazy_commit.ui._RICH_AVAILABLE", False), patch(
+            "lazy_commit.ui.use_color", return_value=False
+        ):
+            rendered = ui.render_history_detail(entry)
+
+        self.assertIn("Generated: 2026-03-10 12:34:56+08:00", rendered)
+        self.assertIn("Project: lazy-commit", rendered)
+        self.assertIn("Provider: openai", rendered)
+        self.assertIn("Model: gpt-4.1-mini", rendered)
+
     def test_status_helpers_keep_original_message(self) -> None:
         with patch("lazy_commit.ui._RICH_AVAILABLE", False), patch(
             "lazy_commit.ui.use_color", return_value=False

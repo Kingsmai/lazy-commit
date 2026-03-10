@@ -13,6 +13,7 @@ from .errors import ConfigError, GitError, LLMError, LazyCommitError
 from .git_ops import GitClient
 from .history import (
     DEFAULT_HISTORY_LIMIT,
+    HistoryEntry,
     build_history_entry,
     load_history_entries,
     record_history_entry,
@@ -168,6 +169,100 @@ def _resolve_token_input(value: str) -> str:
     return sys.stdin.read()
 
 
+def _history_browser_enabled() -> bool:
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def _parse_history_index(raw_value: str, entry_count: int) -> int | None:
+    try:
+        index = int(raw_value)
+    except ValueError:
+        return None
+    if index < 1 or index > entry_count:
+        return None
+    return index - 1
+
+
+def _print_history_listing(entries: list[HistoryEntry], query: str) -> None:
+    print(ui.rule("="))
+    print(ui.section(t("cli.section.history")))
+    if query:
+        print(ui.key_value(t("cli.label.query"), query))
+    print(ui.key_value(t("cli.label.entries"), str(len(entries))))
+    if not entries:
+        print(ui.warn(t("cli.log.history_empty")))
+    else:
+        print(ui.render_history(entries))
+    print(ui.rule("="))
+
+
+def _print_history_entry_detail(entry: HistoryEntry) -> None:
+    print(ui.rule("="))
+    print(ui.section(t("cli.section.history_entry")))
+    print(ui.render_history_detail(entry))
+    print(ui.section(t("cli.section.changed_files")))
+    print(ui.render_files(list(entry.changed_files)))
+    print("")
+    print(ui.section(t("cli.section.commit_message")))
+    print(ui.render_message_box(entry.commit_message))
+    print(ui.rule("="))
+
+
+def _run_history_browser(entries: list[HistoryEntry], query: str) -> None:
+    if not entries or not _history_browser_enabled():
+        return
+
+    print(ui.info(t("cli.log.history_browser_help")))
+    while True:
+        try:
+            raw_command = input(t("cli.prompt.history_action"))
+        except EOFError:
+            break
+
+        command = raw_command.strip()
+        if not command:
+            continue
+
+        normalized = command.casefold()
+        if normalized in {"q", "quit", "exit"}:
+            return
+        if normalized in {"h", "help", "?"}:
+            print(ui.info(t("cli.log.history_browser_help")))
+            continue
+        if normalized in {"l", "list"}:
+            _print_history_listing(entries, query)
+            continue
+
+        parts = command.split(maxsplit=1)
+        if len(parts) == 1 and parts[0].isdigit():
+            index = _parse_history_index(parts[0], len(entries))
+            if index is None:
+                print(ui.warn(t("cli.log.history_index_out_of_range", count=len(entries))))
+                continue
+            _print_history_entry_detail(entries[index])
+            continue
+
+        action = parts[0].casefold()
+        if action in {"v", "view", "c", "copy"}:
+            if len(parts) != 2:
+                print(ui.warn(t("cli.log.history_command_requires_index")))
+                continue
+            index = _parse_history_index(parts[1], len(entries))
+            if index is None:
+                print(ui.warn(t("cli.log.history_index_out_of_range", count=len(entries))))
+                continue
+            entry = entries[index]
+            if action in {"v", "view"}:
+                _print_history_entry_detail(entry)
+                continue
+            copy_result = copy_text(entry.commit_message)
+            status = ui.success if copy_result.ok else ui.warn
+            print(status(copy_result.detail))
+            continue
+
+        print(ui.warn(t("cli.log.history_unknown_command")))
+
+
 def run(argv: list[str] | None = None) -> int:
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     set_language(detect_language(peek_cli_language(raw_argv)))
@@ -221,17 +316,8 @@ def run(argv: list[str] | None = None) -> int:
             raise LazyCommitError(
                 t("cli.error.history_load_failed", error=exc)
             ) from exc
-        print(ui.rule("="))
-        print(ui.section(t("cli.section.history")))
-        if query:
-            print(ui.key_value(t("cli.label.query"), query))
-        print(ui.key_value(t("cli.label.entries"), str(len(entries))))
-        if not entries:
-            print(ui.warn(t("cli.log.history_empty")))
-            print(ui.rule("="))
-            return 0
-        print(ui.render_history(entries))
-        print(ui.rule("="))
+        _print_history_listing(entries, query)
+        _run_history_browser(entries, query)
         return 0
 
     if args.count_tokens is not None:
