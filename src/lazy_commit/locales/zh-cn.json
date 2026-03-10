@@ -37,6 +37,8 @@
     "cli.error.tui_conflicts": "--tui 不能与以下参数同时使用：{flags}。",
     "cli.error.tui_requires_tty": "--tui 需要交互式终端。",
     "cli.error.tui_unavailable": "当前平台无法使用 TUI 模式。",
+    "cli.error.tui_unavailable_windows": "TUI 模式不可用，因为当前 Python 环境未安装 curses。Windows 上请重新安装或升级 lazy-commit，以安装 windows-curses。",
+    "cli.error.tui_unavailable_windows_py314": "Windows + Python 3.14 及以上版本暂时无法使用 TUI 模式，因为 windows-curses 还没有发布兼容 wheel。你可以继续使用普通 CLI，或改用 Python 3.13 及以下版本运行 lazy-commit --tui。",
     "cli.error.prefix": "lazy-commit 错误：{error}",
     "cli.section.token_count": "Token 统计",
     "cli.section.execution_log": "执行日志",

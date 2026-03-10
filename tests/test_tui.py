@@ -43,6 +43,40 @@ class TUITests(unittest.TestCase):
             with self.assertRaises(ConfigError):
                 run_tui(settings, TUIOptions())
 
+    def test_run_tui_reports_windows_install_hint_when_curses_is_unavailable(self) -> None:
+        settings = Settings(
+            api_key="test-key",
+            base_url="https://api.openai.com/v1",
+            model_name="gpt-4.1-mini",
+            max_context_size=12000,
+            provider="openai",
+        )
+
+        with patch("lazy_commit.tui.curses", None), patch(
+            "lazy_commit.tui.sys.platform", "win32"
+        ):
+            with self.assertRaises(ConfigError) as context:
+                run_tui(settings, TUIOptions())
+
+        self.assertIn("windows-curses", str(context.exception))
+
+    def test_run_tui_reports_windows_python_314_compatibility_hint(self) -> None:
+        settings = Settings(
+            api_key="test-key",
+            base_url="https://api.openai.com/v1",
+            model_name="gpt-4.1-mini",
+            max_context_size=12000,
+            provider="openai",
+        )
+
+        with patch("lazy_commit.tui.curses", None), patch(
+            "lazy_commit.tui.sys.platform", "win32"
+        ), patch("lazy_commit.tui.sys.version_info", (3, 14, 0)):
+            with self.assertRaises(ConfigError) as context:
+                run_tui(settings, TUIOptions())
+
+        self.assertIn("Python 3.14+", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

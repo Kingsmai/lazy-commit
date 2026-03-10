@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lazy-commit"
-version = "0.10.0"
+version = "0.10.1"
 description = "Understand git changes and generate normalized commit messages with one-click apply/push."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,6 +15,7 @@ authors = [
 dependencies = [
   "rich>=13.7",
   "tiktoken>=0.7",
+  "windows-curses; platform_system == 'Windows' and python_version < '3.14'",
 ]
 
 [project.scripts]

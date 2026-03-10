@@ -2,7 +2,7 @@
 
 `lazy-commit` is a Python CLI that understands your local Git changes, asks an LLM for a structured Conventional Commit proposal, normalizes the result, and optionally runs `git commit` and `git push` in one flow.
 
-Current package version: `0.10.0`.
+Current package version: `0.10.1`.
 
 ## Highlights
 
@@ -39,6 +39,8 @@ Verify:
 ```bash
 lazy-commit --help
 ```
+
+Windows note: installing from `pyproject.toml` now pulls in `windows-curses` automatically so `lazy-commit --tui` works in supported terminals on Python 3.10-3.13. If you installed an older build before this dependency was added, rerun the install command to refresh dependencies.
 
 ### User-level install (outside venv)
 
@@ -115,6 +117,8 @@ lazy-commit --wip --apply --stage-all --yes
 lazy-commit --tui
 lazy-commit --tui --wip --no-copy
 ```
+
+If `--tui` still reports that TUI mode is unavailable on Windows, reinstall or upgrade the package so `pip` installs `windows-curses` into the same Python environment as `lazy-commit`. On Python 3.14 or newer, TUI remains unavailable until `windows-curses` publishes compatible wheels.
 
 TUI key bindings:
 

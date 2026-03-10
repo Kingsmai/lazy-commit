@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 import textwrap
 from typing import Any
 
@@ -40,6 +41,14 @@ class TUIOptions:
     wip: bool = False
     token_model: str | None = None
     token_encoding: str | None = None
+
+
+def _tui_unavailable_message() -> str:
+    if sys.platform == "win32":
+        if sys.version_info >= (3, 14):
+            return t("cli.error.tui_unavailable_windows_py314")
+        return t("cli.error.tui_unavailable_windows")
+    return t("cli.error.tui_unavailable")
 
 
 def _ellipsize(text: str, width: int) -> str:
@@ -146,7 +155,7 @@ class LazyCommitTUI:
 
     def run(self) -> int:
         if curses is None:
-            raise ConfigError(t("cli.error.tui_unavailable"))
+            raise ConfigError(_tui_unavailable_message())
 
         self.git.ensure_repo()
         self.repo_root = self.git.repo_root()
