@@ -6,7 +6,6 @@ import unittest
 from unittest.mock import Mock, patch
 
 from lazy_commit.cli import run
-from lazy_commit.commit_message import CommitProposal
 from lazy_commit.config import Settings
 from lazy_commit.errors import ConfigError
 from lazy_commit.git_ops import RepoSnapshot
@@ -14,11 +13,16 @@ from lazy_commit.history import HistoryEntry
 from lazy_commit.i18n import LanguageInfo, get_language, set_language
 from lazy_commit.prompting import PromptPayload, PromptTokenUsage
 from lazy_commit.token_count import TokenCountResult
+from lazy_commit.workflow import ApplyResult, GenerationResult
 
 
-class _Proposal:
-    def to_commit_message(self) -> str:
-        return "chore(cli): add progress logs\n"
+def _generation_result(
+    message: str = "chore(cli): add progress logs\n",
+    raw_response: str = (
+        '{"type":"chore","scope":"cli","subject":"add progress logs","body":[],"breaking_change":false}'
+    ),
+) -> GenerationResult:
+    return GenerationResult(raw_response=raw_response, final_message=message)
 
 
 class CLIRunLoggingTests(unittest.TestCase):
@@ -71,19 +75,16 @@ class CLIRunLoggingTests(unittest.TestCase):
         with patch("lazy_commit.cli.load_settings", return_value=settings), patch(
             "lazy_commit.cli.GitClient"
         ) as git_client_cls, patch(
-            "lazy_commit.cli.build_prompt", return_value=prompt_payload
+            "lazy_commit.cli.build_generation_payload", return_value=prompt_payload
         ), patch(
-            "lazy_commit.cli.LLMClient"
-        ) as llm_client_cls, patch(
-            "lazy_commit.cli.parse_commit_proposal", return_value=_Proposal()
+            "lazy_commit.cli.request_commit_proposal",
+            return_value='{"type":"chore","scope":"cli","subject":"add progress logs","body":[],"breaking_change":false}',
+        ), patch(
+            "lazy_commit.cli.finalize_generation",
+            return_value=_generation_result(),
         ), patch("builtins.print") as mocked_print:
             git_client = git_client_cls.return_value
             git_client.snapshot.return_value = snapshot
-
-            llm_client = llm_client_cls.return_value
-            llm_client.complete.return_value.text = (
-                '{"type":"chore","scope":"cli","subject":"add progress logs","body":[],"breaking_change":false}'
-            )
 
             exit_code = run(["--no-copy"])
 
@@ -251,6 +252,60 @@ class CLIRunLoggingTests(unittest.TestCase):
             with self.assertRaises(ConfigError):
                 run(["--count-tokens"])
 
+    def test_run_tui_launches_full_screen_app(self) -> None:
+        settings = Settings(
+            api_key="test-key",
+            base_url="https://api.openai.com/v1",
+            model_name="gpt-4.1-mini",
+            max_context_size=12000,
+            provider="openai",
+        )
+        fake_stdin = Mock()
+        fake_stdout = Mock()
+        fake_stdin.isatty.return_value = True
+        fake_stdout.isatty.return_value = True
+
+        with patch("lazy_commit.cli.load_settings", return_value=settings) as load_settings_mock, patch(
+            "lazy_commit.tui.run_tui", return_value=0
+        ) as run_tui_mock, patch(
+            "sys.stdin", fake_stdin
+        ), patch(
+            "sys.stdout", fake_stdout
+        ):
+            exit_code = run(
+                [
+                    "--tui",
+                    "--no-copy",
+                    "--wip",
+                    "--remote",
+                    "upstream",
+                    "--branch",
+                    "release/main",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        load_settings_mock.assert_called_once()
+        run_tui_mock.assert_called_once()
+        self.assertEqual(run_tui_mock.call_args.args[0], settings)
+        options = run_tui_mock.call_args.args[1]
+        self.assertEqual(options.remote, "upstream")
+        self.assertEqual(options.branch, "release/main")
+        self.assertFalse(options.copy)
+        self.assertTrue(options.wip)
+
+    def test_run_tui_rejects_non_interactive_flags(self) -> None:
+        fake_stdin = Mock()
+        fake_stdout = Mock()
+        fake_stdin.isatty.return_value = True
+        fake_stdout.isatty.return_value = True
+
+        with patch("sys.stdin", fake_stdin), patch("sys.stdout", fake_stdout):
+            with self.assertRaises(ConfigError) as context:
+                run(["--tui", "--apply"])
+
+        self.assertIn("--tui cannot be combined", str(context.exception))
+
     def test_run_wip_mode_uses_model_generation_and_forces_wip_type(self) -> None:
         settings = Settings(
             api_key="test-key",
@@ -269,37 +324,30 @@ class CLIRunLoggingTests(unittest.TestCase):
             recent_commits="chore: baseline",
         )
         prompt_payload = PromptPayload(system="system", user="user", context="context")
-        proposal = CommitProposal(
-            commit_type="feat",
-            scope="cli",
-            subject="checkpoint parser update",
-            body_lines=[],
-            breaking_change=False,
-        )
 
         with patch("lazy_commit.cli.load_settings", return_value=settings) as load_settings_mock, patch(
             "lazy_commit.cli.GitClient"
         ) as git_client_cls, patch(
-            "lazy_commit.cli.build_prompt", return_value=prompt_payload
+            "lazy_commit.cli.build_generation_payload", return_value=prompt_payload
         ) as build_prompt_mock, patch(
-            "lazy_commit.cli.LLMClient"
-        ) as llm_client_cls, patch(
-            "lazy_commit.cli.parse_commit_proposal", return_value=proposal
-        ) as parse_mock, patch("builtins.print") as mocked_print:
+            "lazy_commit.cli.request_commit_proposal",
+            return_value='{"type":"feat","scope":"cli","subject":"checkpoint parser update","body":[],"breaking_change":false}',
+        ), patch(
+            "lazy_commit.cli.finalize_generation",
+            return_value=_generation_result("wip(cli): checkpoint parser update\n"),
+        ) as finalize_mock, patch("builtins.print") as mocked_print:
             git_client = git_client_cls.return_value
             git_client.snapshot.return_value = snapshot
-            llm_client = llm_client_cls.return_value
-            llm_client.complete.return_value.text = (
-                '{"type":"feat","scope":"cli","subject":"checkpoint parser update","body":[],"breaking_change":false}'
-            )
 
             exit_code = run(["--wip", "--no-copy"])
 
         self.assertEqual(exit_code, 0)
         load_settings_mock.assert_called_once()
         build_prompt_mock.assert_called_once()
-        llm_client_cls.assert_called_once()
-        parse_mock.assert_called_once()
+        finalize_mock.assert_called_once_with(
+            '{"type":"feat","scope":"cli","subject":"checkpoint parser update","body":[],"breaking_change":false}',
+            wip=True,
+        )
 
         lines = [str(call.args[0]) for call in mocked_print.call_args_list if call.args]
         self._find_line_index(lines, "Loading settings...")
@@ -324,39 +372,42 @@ class CLIRunLoggingTests(unittest.TestCase):
             recent_commits="chore: baseline",
         )
         prompt_payload = PromptPayload(system="system", user="user", context="context")
-        proposal = CommitProposal(
-            commit_type="fix",
-            scope="",
-            subject="checkpoint before merge",
-            body_lines=[],
-            breaking_change=False,
-        )
 
         with patch("lazy_commit.cli.load_settings", return_value=settings) as load_settings_mock, patch(
             "lazy_commit.cli.GitClient"
         ) as git_client_cls, patch(
-            "lazy_commit.cli.build_prompt", return_value=prompt_payload
+            "lazy_commit.cli.build_generation_payload", return_value=prompt_payload
         ) as build_prompt_mock, patch(
-            "lazy_commit.cli.LLMClient"
-        ) as llm_client_cls, patch(
-            "lazy_commit.cli.parse_commit_proposal", return_value=proposal
-        ) as parse_mock:
+            "lazy_commit.cli.request_commit_proposal",
+            return_value='{"type":"fix","scope":"","subject":"checkpoint before merge","body":[],"breaking_change":false}',
+        ), patch(
+            "lazy_commit.cli.finalize_generation",
+            return_value=_generation_result("wip: checkpoint before merge\n"),
+        ) as finalize_mock, patch(
+            "lazy_commit.cli.apply_commit_message",
+            return_value=ApplyResult(
+                commit_output="[main abc123] wip: checkpoint before merge"
+            ),
+        ) as apply_mock:
             git_client = git_client_cls.return_value
             git_client.snapshot.return_value = snapshot
-            llm_client = llm_client_cls.return_value
-            llm_client.complete.return_value.text = (
-                '{"type":"fix","scope":"","subject":"checkpoint before merge","body":[],"breaking_change":false}'
-            )
-            git_client.commit.return_value = "[main abc123] wip: checkpoint before merge"
 
             exit_code = run(["--wip", "--apply", "--yes", "--no-copy"])
 
         self.assertEqual(exit_code, 0)
         load_settings_mock.assert_called_once()
         build_prompt_mock.assert_called_once()
-        llm_client_cls.assert_called_once()
-        parse_mock.assert_called_once()
-        git_client.commit.assert_called_once_with("wip: checkpoint before merge\n")
+        finalize_mock.assert_called_once_with(
+            '{"type":"fix","scope":"","subject":"checkpoint before merge","body":[],"breaking_change":false}',
+            wip=True,
+        )
+        apply_mock.assert_called_once_with(
+            git_client,
+            "wip: checkpoint before merge\n",
+            push=False,
+            remote="origin",
+            branch=None,
+        )
 
     def test_run_records_generated_commit_in_history(self) -> None:
         settings = Settings(
@@ -380,32 +431,28 @@ class CLIRunLoggingTests(unittest.TestCase):
         with patch("lazy_commit.cli.load_settings", return_value=settings), patch(
             "lazy_commit.cli.GitClient"
         ) as git_client_cls, patch(
-            "lazy_commit.cli.build_prompt", return_value=prompt_payload
+            "lazy_commit.cli.build_generation_payload", return_value=prompt_payload
         ), patch(
-            "lazy_commit.cli.LLMClient"
-        ) as llm_client_cls, patch(
-            "lazy_commit.cli.parse_commit_proposal", return_value=_Proposal()
+            "lazy_commit.cli.request_commit_proposal",
+            return_value='{"type":"chore","scope":"cli","subject":"add progress logs","body":[],"breaking_change":false}',
         ), patch(
-            "lazy_commit.cli.record_history_entry"
+            "lazy_commit.cli.finalize_generation",
+            return_value=_generation_result(),
+        ), patch(
+            "lazy_commit.cli.record_generated_history"
         ) as record_history_mock, patch("builtins.print"):
             git_client = git_client_cls.return_value
             git_client.snapshot.return_value = snapshot
-            git_client.repo_root.return_value = "/tmp/demo-project"
-
-            llm_client = llm_client_cls.return_value
-            llm_client.complete.return_value.text = (
-                '{"type":"chore","scope":"cli","subject":"add progress logs","body":[],"breaking_change":false}'
-            )
 
             exit_code = run(["--no-copy"])
 
         self.assertEqual(exit_code, 0)
-        record_history_mock.assert_called_once()
-        recorded_entry = record_history_mock.call_args.args[0]
-        self.assertEqual(recorded_entry.project_name, "demo-project")
-        self.assertEqual(recorded_entry.repo_path, "/tmp/demo-project")
-        self.assertEqual(recorded_entry.branch, "main")
-        self.assertEqual(recorded_entry.commit_message, "chore(cli): add progress logs")
+        record_history_mock.assert_called_once_with(
+            git_client,
+            snapshot,
+            "chore(cli): add progress logs\n",
+            settings,
+        )
 
     def test_run_list_languages_mode_skips_generation_flow(self) -> None:
         languages = [
@@ -488,19 +535,16 @@ class CLIRunLoggingTests(unittest.TestCase):
         with patch("lazy_commit.cli.load_settings", return_value=settings), patch(
             "lazy_commit.cli.GitClient"
         ) as git_client_cls, patch(
-            "lazy_commit.cli.build_prompt", return_value=prompt_payload
+            "lazy_commit.cli.build_generation_payload", return_value=prompt_payload
         ), patch(
-            "lazy_commit.cli.LLMClient"
-        ) as llm_client_cls, patch(
-            "lazy_commit.cli.parse_commit_proposal", return_value=_Proposal()
+            "lazy_commit.cli.request_commit_proposal",
+            return_value='{"type":"chore","scope":"cli","subject":"add progress logs","body":[],"breaking_change":false}',
+        ), patch(
+            "lazy_commit.cli.finalize_generation",
+            return_value=_generation_result(),
         ), patch("builtins.print") as mocked_print:
             git_client = git_client_cls.return_value
             git_client.snapshot.return_value = snapshot
-
-            llm_client = llm_client_cls.return_value
-            llm_client.complete.return_value.text = (
-                '{"type":"chore","scope":"cli","subject":"add progress logs","body":[],"breaking_change":false}'
-            )
 
             exit_code = run(["--no-copy"])
 

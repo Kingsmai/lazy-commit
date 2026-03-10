@@ -70,6 +70,82 @@ class GitOpsTests(unittest.TestCase):
 
         self.assertEqual(files, ["new_name.py"])
 
+    def test_file_changes_preserve_status_columns_and_original_path(self) -> None:
+        client = GitClient(cwd=".")
+        completed = subprocess.CompletedProcess(
+            args=["git", "status", "--porcelain"],
+            returncode=0,
+            stdout="\n".join(
+                [
+                    "M  README.md",
+                    "R  old_name.py -> new_name.py",
+                    "?? src/lazy_commit/tui.py",
+                ]
+            ),
+            stderr="",
+        )
+
+        with patch.object(client, "_run", return_value=completed):
+            changes = client.file_changes()
+
+        self.assertEqual(changes[0].status_code, "M ")
+        self.assertTrue(changes[0].is_staged)
+        self.assertEqual(changes[1].original_path, "old_name.py")
+        self.assertEqual(changes[1].path, "new_name.py")
+        self.assertTrue(changes[2].is_untracked)
+
+    def test_diff_for_file_combines_staged_and_unstaged_sections(self) -> None:
+        client = GitClient(cwd=".")
+        responses = [
+            subprocess.CompletedProcess(
+                args=["git", "diff", "--cached"],
+                returncode=0,
+                stdout="diff --git a/file.py b/file.py\n+staged",
+                stderr="",
+            ),
+            subprocess.CompletedProcess(
+                args=["git", "diff"],
+                returncode=0,
+                stdout="diff --git a/file.py b/file.py\n+unstaged",
+                stderr="",
+            ),
+        ]
+
+        with patch.object(client, "_run", side_effect=responses):
+            rendered = client.diff_for_file("file.py")
+
+        self.assertIn("## Staged", rendered)
+        self.assertIn("+staged", rendered)
+        self.assertIn("## Unstaged", rendered)
+        self.assertIn("+unstaged", rendered)
+
+    def test_diff_for_file_uses_untracked_preview_when_git_diff_is_empty(self) -> None:
+        client = GitClient(cwd=".")
+        responses = [
+            subprocess.CompletedProcess(
+                args=["git", "diff", "--cached"],
+                returncode=0,
+                stdout="",
+                stderr="",
+            ),
+            subprocess.CompletedProcess(
+                args=["git", "diff"],
+                returncode=0,
+                stdout="",
+                stderr="",
+            ),
+        ]
+
+        with patch.object(client, "_run", side_effect=responses), patch.object(
+            client,
+            "_read_untracked_preview",
+            return_value="## Untracked file preview\nfile.py",
+        ) as preview_mock:
+            rendered = client.diff_for_file("file.py")
+
+        preview_mock.assert_called_once_with("file.py")
+        self.assertEqual(rendered, "## Untracked file preview\nfile.py")
+
 
 if __name__ == "__main__":
     unittest.main()

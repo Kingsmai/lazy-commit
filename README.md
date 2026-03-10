@@ -2,7 +2,7 @@
 
 `lazy-commit` is a Python CLI that understands your local Git changes, asks an LLM for a structured Conventional Commit proposal, normalizes the result, and optionally runs `git commit` and `git push` in one flow.
 
-Current package version: `0.9.0`.
+Current package version: `0.10.0`.
 
 ## Highlights
 
@@ -16,6 +16,7 @@ Current package version: `0.9.0`.
 - Built-in multilingual UI (`en`, `zh-CN`, and `zh-TW`)
 - JSON locale catalogs with built-in i18n validation (`--check-i18n`)
 - Readable terminal UI with Rich rendering and plain-text fallback
+- Full-screen TUI mode with file navigation, diff preview, generate/copy/commit actions (`--tui`)
 
 ## Requirements
 
@@ -108,6 +109,27 @@ lazy-commit --wip
 lazy-commit --wip --apply --stage-all --yes
 ```
 
+### 7. Launch the full-screen TUI
+
+```bash
+lazy-commit --tui
+lazy-commit --tui --wip --no-copy
+```
+
+TUI key bindings:
+
+- `Tab`: switch focus between file list, diff preview, and commit message
+- `j` / `k` or arrow keys: move selection / scroll focused pane
+- `PgUp` / `PgDn`: scroll faster
+- `g`: generate commit message
+- `y`: copy generated message
+- `s`: stage or unstage the selected file
+- `a`: stage all changes
+- `c`: create commit with current message
+- `p`: create commit and push
+- `r`: refresh git snapshot
+- `q`: quit
+
 ## Configuration Reference
 
 Environment variables:
@@ -163,6 +185,7 @@ lazy-commit [--api-key API_KEY] [--base-url BASE_URL] [--model MODEL]
             [--count-tokens [TEXT]]
             [--token-model MODEL] [--token-encoding ENCODING]
             [--lang LANG] [--list-languages] [--check-i18n]
+            [--tui]
             [--apply] [--push] [--stage-all] [--yes] [--wip]
             [--remote REMOTE] [--branch BRANCH]
             [--show-context] [--show-raw-response] [--copy | --no-copy]
@@ -190,6 +213,7 @@ Options:
 | `--lang` | UI language override (for example `en`, `zh-CN`, `zh-TW`) |
 | `--list-languages` | Print all supported UI languages and aliases, then exit |
 | `--check-i18n` | Validate locale catalogs (missing keys / placeholder mismatch), then exit |
+| `--tui` | Launch the full-screen interactive TUI |
 
 When `--count-tokens` is used, the command exits after printing token metadata and does not require Git repository checks or API key configuration.
 

@@ -4,19 +4,15 @@ from __future__ import annotations
 
 import argparse
 import sys
-from dataclasses import replace
 
 from .clipboard import copy_text
-from .commit_message import parse_commit_proposal
 from .config import load_settings
 from .errors import ConfigError, GitError, LLMError, LazyCommitError
 from .git_ops import GitClient
 from .history import (
     DEFAULT_HISTORY_LIMIT,
     HistoryEntry,
-    build_history_entry,
     load_history_entries,
-    record_history_entry,
 )
 from .i18n import (
     available_languages,
@@ -27,9 +23,14 @@ from .i18n import (
     t,
     translation_issues,
 )
-from .llm import LLMClient
-from .prompting import build_prompt
 from .token_count import DEFAULT_TOKEN_MODEL, count_tokens
+from .workflow import (
+    apply_commit_message,
+    build_generation_payload,
+    finalize_generation,
+    record_generated_history,
+    request_commit_proposal,
+)
 from . import ui
 
 
@@ -140,6 +141,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_HISTORY_LIMIT,
         help=t("cli.help.history_limit", default_limit=DEFAULT_HISTORY_LIMIT),
     )
+    parser.add_argument(
+        "--tui",
+        action="store_true",
+        help=t("cli.help.tui"),
+    )
     parser.set_defaults(copy=True)
     parser.add_argument(
         "--copy",
@@ -171,6 +177,30 @@ def _resolve_token_input(value: str) -> str:
 
 def _history_browser_enabled() -> bool:
     return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def _validate_tui_args(args: argparse.Namespace) -> None:
+    conflicting_flags: list[str] = []
+    if args.apply:
+        conflicting_flags.append("--apply")
+    if args.push:
+        conflicting_flags.append("--push")
+    if args.stage_all:
+        conflicting_flags.append("--stage-all")
+    if args.yes:
+        conflicting_flags.append("--yes")
+    if args.show_context:
+        conflicting_flags.append("--show-context")
+    if args.show_raw_response:
+        conflicting_flags.append("--show-raw-response")
+
+    if conflicting_flags:
+        raise ConfigError(
+            t("cli.error.tui_conflicts", flags=", ".join(conflicting_flags))
+        )
+
+    if not _history_browser_enabled():
+        raise ConfigError(t("cli.error.tui_requires_tty"))
 
 
 def _parse_history_index(raw_value: str, entry_count: int) -> int | None:
@@ -337,6 +367,29 @@ def run(argv: list[str] | None = None) -> int:
         print(ui.rule("="))
         return 0
 
+    if args.tui:
+        _validate_tui_args(args)
+        settings = load_settings(
+            api_key=args.api_key,
+            base_url=args.base_url,
+            model_name=args.model,
+            max_context_size=args.max_context_size,
+            max_context_tokens=args.max_context_tokens,
+        )
+        from .tui import TUIOptions, run_tui
+
+        return run_tui(
+            settings,
+            TUIOptions(
+                remote=args.remote,
+                branch=args.branch,
+                copy=args.copy,
+                wip=args.wip,
+                token_model=args.token_model,
+                token_encoding=args.token_encoding,
+            ),
+        )
+
     if args.push and not args.apply:
         raise ConfigError(t("cli.error.push_requires_apply"))
 
@@ -364,12 +417,10 @@ def run(argv: list[str] | None = None) -> int:
         return 0
 
     print(ui.info(t("cli.log.building_context")))
-    prompt_token_model = args.token_model or settings.model_name
-    prompt_payload = build_prompt(
+    prompt_payload = build_generation_payload(
+        settings,
         snapshot,
-        max_chars=settings.max_context_size,
-        max_tokens=settings.max_context_tokens,
-        token_model=prompt_token_model,
+        token_model=args.token_model,
         token_encoding=args.token_encoding,
     )
     if prompt_payload.token_usage is not None:
@@ -401,8 +452,8 @@ def run(argv: list[str] | None = None) -> int:
                 print(
                     ui.warn(
                         t("cli.log.context_compression_applied", steps=steps)
-                    )
                 )
+            )
     if args.show_context:
         print(ui.rule("="))
         print(ui.section(t("cli.section.context_sent_to_model")))
@@ -418,20 +469,17 @@ def run(argv: list[str] | None = None) -> int:
             )
         )
     )
-    client = LLMClient(settings)
-    llm_response = client.complete(prompt_payload)
+    raw_response = request_commit_proposal(settings, prompt_payload)
 
     if args.show_raw_response:
         print(ui.rule("="))
         print(ui.section(t("cli.section.raw_model_response")))
-        print(llm_response.text)
+        print(raw_response)
         print(ui.rule("="))
 
     print(ui.info(t("cli.log.parsing_model_response")))
-    proposal = parse_commit_proposal(llm_response.text)
-    if args.wip:
-        proposal = replace(proposal, commit_type="wip")
-    final_message = proposal.to_commit_message()
+    generation_result = finalize_generation(raw_response, wip=args.wip)
+    final_message = generation_result.final_message
 
     print(ui.rule("="))
     print(ui.section(t("cli.section.generation_summary")))
@@ -450,15 +498,7 @@ def run(argv: list[str] | None = None) -> int:
     print(ui.render_message_box(final_message))
 
     try:
-        history_entry = build_history_entry(
-            repo_path=git.repo_root(),
-            branch=snapshot.branch,
-            commit_message=final_message,
-            changed_files=snapshot.changed_files,
-            provider=settings.provider,
-            model_name=settings.model_name,
-        )
-        record_history_entry(history_entry)
+        record_generated_history(git, snapshot, final_message, settings)
     except OSError as exc:
         print(ui.warn(t("cli.log.history_save_failed", error=exc)))
 
@@ -488,14 +528,19 @@ def run(argv: list[str] | None = None) -> int:
         return 1
 
     print(ui.info(t("cli.log.creating_commit")))
-    commit_output = git.commit(final_message)
-    print(commit_output)
-
     if args.push:
         branch = args.branch or git.current_branch()
         print(ui.info(t("cli.log.pushing", remote=args.remote, branch=branch)))
-        push_output = git.push(args.remote, branch)
-        print(push_output)
+    apply_result = apply_commit_message(
+        git,
+        final_message,
+        push=args.push,
+        remote=args.remote,
+        branch=args.branch,
+    )
+    print(apply_result.commit_output)
+    if apply_result.push_output:
+        print(apply_result.push_output)
 
     print(ui.success(t("cli.log.done")))
     print(ui.rule("="))

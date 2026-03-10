@@ -9,6 +9,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 
+from . import __version__
 from .config import GEMINI_PROVIDER, OPENAI_PROVIDER, Settings
 from .errors import LLMError
 from .prompting import PromptPayload
@@ -17,7 +18,7 @@ DEFAULT_TIMEOUT_SECONDS = 60
 DEFAULT_TIMEOUT_ATTEMPTS = 2
 DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-DEFAULT_USER_AGENT = "lazy-commit/0.1.0"
+DEFAULT_USER_AGENT = f"lazy-commit/{__version__}"
 
 
 @dataclass(frozen=True)
