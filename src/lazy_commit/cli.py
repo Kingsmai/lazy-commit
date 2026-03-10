@@ -11,6 +11,12 @@ from .commit_message import parse_commit_proposal
 from .config import load_settings
 from .errors import ConfigError, GitError, LLMError, LazyCommitError
 from .git_ops import GitClient
+from .history import (
+    DEFAULT_HISTORY_LIMIT,
+    build_history_entry,
+    load_history_entries,
+    record_history_entry,
+)
 from .i18n import (
     available_languages,
     detect_language,
@@ -120,6 +126,19 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=t("cli.help.check_i18n"),
     )
+    parser.add_argument(
+        "--history",
+        nargs="?",
+        const="",
+        metavar="QUERY",
+        help=t("cli.help.history"),
+    )
+    parser.add_argument(
+        "--history-limit",
+        type=int,
+        default=DEFAULT_HISTORY_LIMIT,
+        help=t("cli.help.history_limit", default_limit=DEFAULT_HISTORY_LIMIT),
+    )
     parser.set_defaults(copy=True)
     parser.add_argument(
         "--copy",
@@ -156,6 +175,9 @@ def run(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(raw_argv)
     set_language(args.lang)
 
+    if args.history_limit <= 0:
+        raise ConfigError(t("cli.error.history_limit_positive"))
+
     if args.list_languages:
         print(ui.rule("="))
         print(ui.section(t("cli.section.supported_languages")))
@@ -187,6 +209,30 @@ def run(argv: list[str] | None = None) -> int:
         print(ui.warn(t("cli.log.i18n_issues_found", count=len(issues))))
         print(ui.rule("="))
         return 1
+
+    if args.history is not None:
+        query = args.history.strip()
+        try:
+            entries = load_history_entries(
+                query=query or None,
+                limit=args.history_limit,
+            )
+        except OSError as exc:
+            raise LazyCommitError(
+                t("cli.error.history_load_failed", error=exc)
+            ) from exc
+        print(ui.rule("="))
+        print(ui.section(t("cli.section.history")))
+        if query:
+            print(ui.key_value(t("cli.label.query"), query))
+        print(ui.key_value(t("cli.label.entries"), str(len(entries))))
+        if not entries:
+            print(ui.warn(t("cli.log.history_empty")))
+            print(ui.rule("="))
+            return 0
+        print(ui.render_history(entries))
+        print(ui.rule("="))
+        return 0
 
     if args.count_tokens is not None:
         token_text = _resolve_token_input(args.count_tokens)
@@ -316,6 +362,19 @@ def run(argv: list[str] | None = None) -> int:
     print("")
     print(ui.section(t("cli.section.generated_commit_message")))
     print(ui.render_message_box(final_message))
+
+    try:
+        history_entry = build_history_entry(
+            repo_path=git.repo_root(),
+            branch=snapshot.branch,
+            commit_message=final_message,
+            changed_files=snapshot.changed_files,
+            provider=settings.provider,
+            model_name=settings.model_name,
+        )
+        record_history_entry(history_entry)
+    except OSError as exc:
+        print(ui.warn(t("cli.log.history_save_failed", error=exc)))
 
     if args.copy:
         copy_result = copy_text(final_message)

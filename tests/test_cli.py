@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
@@ -9,6 +10,7 @@ from lazy_commit.commit_message import CommitProposal
 from lazy_commit.config import Settings
 from lazy_commit.errors import ConfigError
 from lazy_commit.git_ops import RepoSnapshot
+from lazy_commit.history import HistoryEntry
 from lazy_commit.i18n import LanguageInfo, get_language, set_language
 from lazy_commit.prompting import PromptPayload, PromptTokenUsage
 from lazy_commit.token_count import TokenCountResult
@@ -23,11 +25,22 @@ class CLIRunLoggingTests(unittest.TestCase):
     def setUp(self) -> None:
         self._original_language = get_language()
         set_language("en")
-        self._env_patcher = patch.dict(os.environ, {"LAZY_COMMIT_LANG": "en"}, clear=False)
+        self._history_dir = tempfile.TemporaryDirectory()
+        self._env_patcher = patch.dict(
+            os.environ,
+            {
+                "LAZY_COMMIT_LANG": "en",
+                "LAZY_COMMIT_HISTORY_PATH": os.path.join(
+                    self._history_dir.name, "history.jsonl"
+                ),
+            },
+            clear=False,
+        )
         self._env_patcher.start()
 
     def tearDown(self) -> None:
         self._env_patcher.stop()
+        self._history_dir.cleanup()
         set_language(self._original_language)
 
     def _find_line_index(self, lines: list[str], fragment: str) -> int:
@@ -123,6 +136,38 @@ class CLIRunLoggingTests(unittest.TestCase):
         self._find_line_index(lines, "Collecting git snapshot...")
         self._find_line_index(lines, "No local changes found. Nothing to generate.")
         self.assertFalse(any("Building model context..." in line for line in lines))
+
+    def test_run_history_mode_skips_generation_flow(self) -> None:
+        entries = [
+            HistoryEntry(
+                generated_at="2026-03-10T12:34:56+08:00",
+                project_name="lazy-commit",
+                repo_path="/tmp/lazy-commit",
+                branch="main",
+                commit_message="feat(cli): add history browser",
+                changed_files=("src/lazy_commit/cli.py",),
+            )
+        ]
+
+        with patch("lazy_commit.cli.load_history_entries", return_value=entries) as load_history_mock, patch(
+            "lazy_commit.cli.load_settings"
+        ) as load_settings_mock, patch(
+            "lazy_commit.cli.GitClient"
+        ) as git_client_cls, patch(
+            "lazy_commit.ui.render_history", return_value="history rows"
+        ), patch("builtins.print") as mocked_print:
+            exit_code = run(["--history", "lazy"])
+
+        self.assertEqual(exit_code, 0)
+        load_history_mock.assert_called_once_with(query="lazy", limit=20)
+        load_settings_mock.assert_not_called()
+        git_client_cls.assert_not_called()
+
+        lines = [str(call.args[0]) for call in mocked_print.call_args_list if call.args]
+        self._find_line_index(lines, "Commit History")
+        self._find_line_index(lines, "Query")
+        self._find_line_index(lines, "Entries")
+        self._find_line_index(lines, "history rows")
 
     def test_run_count_tokens_mode_skips_generation_flow(self) -> None:
         token_result = TokenCountResult(
@@ -269,6 +314,55 @@ class CLIRunLoggingTests(unittest.TestCase):
         llm_client_cls.assert_called_once()
         parse_mock.assert_called_once()
         git_client.commit.assert_called_once_with("wip: checkpoint before merge\n")
+
+    def test_run_records_generated_commit_in_history(self) -> None:
+        settings = Settings(
+            api_key="test-key",
+            base_url="https://api.openai.com/v1",
+            model_name="gpt-4.1-mini",
+            max_context_size=12000,
+            provider="openai",
+        )
+        snapshot = RepoSnapshot(
+            branch="main",
+            status_short="M src/lazy_commit/cli.py",
+            staged_diff="",
+            unstaged_diff="diff --git a/src/lazy_commit/cli.py b/src/lazy_commit/cli.py",
+            untracked_files="",
+            changed_files=["src/lazy_commit/cli.py"],
+            recent_commits="chore: baseline",
+        )
+        prompt_payload = PromptPayload(system="system", user="user", context="context")
+
+        with patch("lazy_commit.cli.load_settings", return_value=settings), patch(
+            "lazy_commit.cli.GitClient"
+        ) as git_client_cls, patch(
+            "lazy_commit.cli.build_prompt", return_value=prompt_payload
+        ), patch(
+            "lazy_commit.cli.LLMClient"
+        ) as llm_client_cls, patch(
+            "lazy_commit.cli.parse_commit_proposal", return_value=_Proposal()
+        ), patch(
+            "lazy_commit.cli.record_history_entry"
+        ) as record_history_mock, patch("builtins.print"):
+            git_client = git_client_cls.return_value
+            git_client.snapshot.return_value = snapshot
+            git_client.repo_root.return_value = "/tmp/demo-project"
+
+            llm_client = llm_client_cls.return_value
+            llm_client.complete.return_value.text = (
+                '{"type":"chore","scope":"cli","subject":"add progress logs","body":[],"breaking_change":false}'
+            )
+
+            exit_code = run(["--no-copy"])
+
+        self.assertEqual(exit_code, 0)
+        record_history_mock.assert_called_once()
+        recorded_entry = record_history_mock.call_args.args[0]
+        self.assertEqual(recorded_entry.project_name, "demo-project")
+        self.assertEqual(recorded_entry.repo_path, "/tmp/demo-project")
+        self.assertEqual(recorded_entry.branch, "main")
+        self.assertEqual(recorded_entry.commit_message, "chore(cli): add progress logs")
 
     def test_run_list_languages_mode_skips_generation_flow(self) -> None:
         languages = [

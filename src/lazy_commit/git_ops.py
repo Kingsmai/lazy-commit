@@ -66,6 +66,10 @@ class GitClient:
         result = self._run("rev-parse", "--abbrev-ref", "HEAD")
         return (result.stdout or "").strip()
 
+    def repo_root(self) -> str:
+        result = self._run("rev-parse", "--show-toplevel")
+        return (result.stdout or "").strip()
+
     def status_short(self) -> str:
         result = self._run("status", "--short")
         return (result.stdout or "").rstrip()

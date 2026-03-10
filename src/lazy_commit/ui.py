@@ -5,8 +5,9 @@ from __future__ import annotations
 import os
 import shutil
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from .history import format_history_timestamp
 from .i18n import t
 
 RESET = "\033[0m"
@@ -29,6 +30,9 @@ except ImportError:
     box = Console = Panel = Table = Text = None  # type: ignore[assignment]
 else:
     _RICH_AVAILABLE = True
+
+if TYPE_CHECKING:
+    from .history import HistoryEntry
 
 
 def use_color() -> bool:
@@ -162,3 +166,42 @@ def render_message_box(message: str) -> str:
     border = "+" + "-" * (content_width + 2) + "+"
     body = "\n".join(f"| {line.ljust(content_width)} |" for line in lines)
     return f"{border}\n{body}\n{border}"
+
+
+def render_history(entries: list[HistoryEntry]) -> str:
+    if not entries:
+        return f"  {t('ui.none')}"
+    if _RICH_AVAILABLE:
+        table = Table(show_header=True, box=box.SIMPLE_HEAD, pad_edge=False)
+        table.add_column("#", justify="right", style="bold cyan", no_wrap=True)
+        table.add_column(t("ui.table.generated"), style="white", no_wrap=True)
+        table.add_column(t("ui.table.project"), style="bold white", no_wrap=True)
+        table.add_column(t("ui.table.branch"), style="white", no_wrap=True)
+        table.add_column(t("ui.table.path"), style="white", overflow="fold")
+        table.add_column(t("ui.table.message"), style="white", overflow="fold")
+        for index, entry in enumerate(entries, start=1):
+            table.add_row(
+                str(index),
+                format_history_timestamp(entry.generated_at),
+                entry.project_name,
+                entry.branch,
+                entry.repo_path,
+                entry.subject,
+            )
+        rendered = _capture_renderable(table)
+        if rendered is not None:
+            return rendered
+    blocks: list[str] = []
+    for index, entry in enumerate(entries, start=1):
+        blocks.append(
+            "\n".join(
+                (
+                    f"{index}. {entry.subject}",
+                    f"   {t('ui.field.generated_at')}: {format_history_timestamp(entry.generated_at)}",
+                    f"   {t('ui.field.project')}: {entry.project_name}",
+                    f"   {t('ui.field.branch')}: {entry.branch}",
+                    f"   {t('ui.field.path')}: {entry.repo_path}",
+                )
+            )
+        )
+    return "\n\n".join(blocks)

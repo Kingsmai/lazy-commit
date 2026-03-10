@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from lazy_commit import ui
+from lazy_commit.history import HistoryEntry
 from lazy_commit.i18n import get_language, set_language
 
 
@@ -43,6 +44,24 @@ class UIFallbackRenderingTests(unittest.TestCase):
         self.assertIn("+", rendered)
         self.assertIn("| feat(cli): improve output |", rendered)
         self.assertIn("| add details               |", rendered)
+
+    def test_render_history_fallback_contains_project_and_path(self) -> None:
+        entries = [
+            HistoryEntry(
+                generated_at="2026-03-10T12:34:56+08:00",
+                project_name="lazy-commit",
+                repo_path="/tmp/lazy-commit",
+                branch="main",
+                commit_message="feat(cli): add history browser",
+                changed_files=("src/lazy_commit/cli.py",),
+            )
+        ]
+        with patch("lazy_commit.ui._RICH_AVAILABLE", False):
+            rendered = ui.render_history(entries)
+
+        self.assertIn("1. feat(cli): add history browser", rendered)
+        self.assertIn("Project: lazy-commit", rendered)
+        self.assertIn("Path: /tmp/lazy-commit", rendered)
 
     def test_status_helpers_keep_original_message(self) -> None:
         with patch("lazy_commit.ui._RICH_AVAILABLE", False), patch(
