@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import queue
+import threading
 from dataclasses import dataclass, replace
+from typing import Callable
 
 from .commit_message import parse_commit_proposal
 from .config import Settings
@@ -12,6 +15,8 @@ from .history import HistoryEntry, build_history_entry, record_history_entry
 from .i18n import t
 from .llm import LLMClient
 from .prompting import PromptPayload, build_prompt
+
+_INTERRUPT_POLL_SECONDS = 0.1
 
 
 @dataclass(frozen=True)
@@ -72,7 +77,38 @@ def request_commit_proposal(
 ) -> str:
     """Request a raw commit proposal string from the configured model."""
     llm_client = client or LLMClient(settings)
-    return llm_client.complete(prompt_payload).text
+    return _run_interruptibly(lambda: llm_client.complete(prompt_payload).text)
+
+
+def _run_interruptibly(operation: Callable[[], str]) -> str:
+    result_queue: queue.Queue[tuple[str, str | BaseException]] = queue.Queue(maxsize=1)
+
+    def _worker() -> None:
+        try:
+            result_queue.put(("value", operation()))
+        except BaseException as exc:
+            result_queue.put(("error", exc))
+
+    worker = threading.Thread(
+        target=_worker,
+        name="lazy-commit-llm-request",
+        daemon=True,
+    )
+    worker.start()
+
+    while True:
+        try:
+            kind, payload = result_queue.get(timeout=_INTERRUPT_POLL_SECONDS)
+        except queue.Empty:
+            if worker.is_alive():
+                continue
+            raise RuntimeError("LLM request worker exited without a result.")
+
+        if kind == "error":
+            assert isinstance(payload, BaseException)
+            raise payload
+        assert isinstance(payload, str)
+        return payload
 
 
 def record_generated_history(
