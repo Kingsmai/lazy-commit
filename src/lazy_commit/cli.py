@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from typing import TextIO
 
 from .clipboard import copy_text
 from .config import load_settings
@@ -293,6 +294,16 @@ def _run_history_browser(entries: list[HistoryEntry], query: str) -> None:
         print(ui.warn(t("cli.log.history_unknown_command")))
 
 
+def _print_cli_error(exc: BaseException, *, stream: TextIO) -> None:
+    print(ui.error(t("cli.error.prefix", error=exc)), file=stream)
+    if not isinstance(exc, LLMError):
+        return
+    for detail in exc.details:
+        print(ui.warn(t("cli.error.detail", detail=detail)), file=stream)
+    for hint in exc.hints:
+        print(ui.info(t("cli.error.hint", hint=hint)), file=stream)
+
+
 def run(argv: list[str] | None = None) -> int:
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     set_language(detect_language(peek_cli_language(raw_argv)))
@@ -551,7 +562,7 @@ def main() -> None:
     try:
         raise SystemExit(run())
     except (ConfigError, GitError, LLMError, LazyCommitError) as exc:
-        print(ui.error(t("cli.error.prefix", error=exc)), file=sys.stderr)
+        _print_cli_error(exc, stream=sys.stderr)
         raise SystemExit(2) from exc
     except KeyboardInterrupt:
         print(f"\n{t('cli.log.interrupted')}", file=sys.stderr)

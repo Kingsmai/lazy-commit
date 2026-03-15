@@ -39,7 +39,9 @@
 
 ## Versioning Rules
 - Package version source is `src/lazy_commit/__init__.py` via `__version__`.
-- When releasing, update `src/lazy_commit/__init__.py` and `pyproject.toml` `project.version` in the same PR; keep them identical.
+- Every shipped upgrade must update `src/lazy_commit/__init__.py` and `pyproject.toml` `project.version` in the same PR; keep them identical.
+- Treat any user-facing or runtime upgrade as version-worthy, including features, bug fixes, refactors that change behavior, dependency upgrades, prompt/model integration changes, CLI/TUI UX changes, and config/schema changes.
+- Do not merge an upgrade PR without a matching version bump in both files.
 - Use semantic versioning:
   - `patch` (`0.1.1`) for bug fixes/refactors without behavior break
   - `minor` (`0.2.0`) for backward-compatible features/flags

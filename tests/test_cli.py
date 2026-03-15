@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import io
 import os
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from lazy_commit.cli import run
+from lazy_commit.cli import main, run
 from lazy_commit.config import Settings
-from lazy_commit.errors import ConfigError
+from lazy_commit.errors import ConfigError, LLMError
 from lazy_commit.git_ops import RepoSnapshot
 from lazy_commit.history import HistoryEntry
 from lazy_commit.i18n import LanguageInfo, get_language, set_language
@@ -585,6 +586,33 @@ class CLIRunLoggingTests(unittest.TestCase):
         self._find_line_index(lines, "正在加载配置...")
         self._find_line_index(lines, "正在检查 Git 仓库...")
         self._find_line_index(lines, "未发现本地变更，无需生成提交信息。")
+
+    def test_main_prints_llm_error_details_and_hints(self) -> None:
+        stderr = io.StringIO()
+        error = LLMError(
+            "Model API gateway returned HTTP 502 and an HTML error page instead of a JSON API response.",
+            details=(
+                "Endpoint: https://example.com/models/gemini:generateContent",
+                "Response summary: tootaio.com | 502: Bad gateway",
+            ),
+            hints=("Retry first.",),
+        )
+
+        with patch("lazy_commit.cli.run", side_effect=error), patch(
+            "sys.stderr",
+            stderr,
+        ):
+            with self.assertRaises(SystemExit) as ctx:
+                main()
+
+        self.assertEqual(ctx.exception.code, 2)
+        output = stderr.getvalue()
+        self.assertIn("lazy-commit error:", output)
+        self.assertIn(
+            "Detail: Endpoint: https://example.com/models/gemini:generateContent",
+            output,
+        )
+        self.assertIn("Hint: Retry first.", output)
 
 
 if __name__ == "__main__":
