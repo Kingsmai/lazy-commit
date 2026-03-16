@@ -6,10 +6,13 @@ import os
 import platform
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from typing import Callable, Mapping
 
 from .i18n import t
+
+_CLIPBOARD_COMMAND_TIMEOUT_SECONDS = 3.0
 
 
 @dataclass(frozen=True)
@@ -22,6 +25,37 @@ class CopyResult:
 
 def _is_wsl(env: Mapping[str, str]) -> bool:
     return "WSL_DISTRO_NAME" in env or "WSL_INTEROP" in env
+
+
+def _linux_clipboard_candidates(env: Mapping[str, str]) -> list[list[str]]:
+    has_wayland = bool(env.get("WAYLAND_DISPLAY"))
+    has_x11 = bool(env.get("DISPLAY"))
+
+    candidates: list[list[str]] = []
+    if _is_wsl(env):
+        candidates.append(["clip.exe"])
+
+    if has_wayland:
+        candidates.append(["wl-copy"])
+
+    if has_x11:
+        candidates.extend(
+            [
+                ["xclip", "-selection", "clipboard"],
+                ["xsel", "--clipboard", "--input"],
+            ]
+        )
+
+    if not has_wayland and not has_x11:
+        candidates.extend(
+            [
+                ["wl-copy"],
+                ["xclip", "-selection", "clipboard"],
+                ["xsel", "--clipboard", "--input"],
+            ]
+        )
+
+    return candidates
 
 
 def clipboard_commands(
@@ -41,21 +75,35 @@ def clipboard_commands(
         candidates.append(["pbcopy"])
     else:
         # Linux and similar Unix systems.
-        if _is_wsl(resolved_env):
-            candidates.append(["clip.exe"])
-        candidates.extend(
-            [
-                ["wl-copy"],
-                ["xclip", "-selection", "clipboard"],
-                ["xsel", "--clipboard", "--input"],
-            ]
-        )
+        candidates.extend(_linux_clipboard_candidates(resolved_env))
 
     available: list[list[str]] = []
     for cmd in candidates:
         if which(cmd[0]):
             available.append(cmd)
     return available
+
+
+def _run_clipboard_command(
+    cmd: list[str],
+    text: str,
+    *,
+    run: Callable[..., subprocess.CompletedProcess[str]],
+) -> tuple[subprocess.CompletedProcess[str], str]:
+    # Avoid PIPE capture here. Some Linux clipboard tools daemonize and inherit
+    # stdout/stderr, which keeps subprocess.run() waiting for pipe EOF forever.
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as stderr_buffer:
+        completed = run(
+            cmd,
+            input=text,
+            text=True,
+            stdout=subprocess.DEVNULL,
+            stderr=stderr_buffer,
+            check=False,
+            timeout=_CLIPBOARD_COMMAND_TIMEOUT_SECONDS,
+        )
+        stderr_buffer.seek(0)
+        return completed, stderr_buffer.read().strip()
 
 
 def copy_text(
@@ -79,20 +127,23 @@ def copy_text(
 
     failures: list[str] = []
     for cmd in commands:
-        completed = run(
-            cmd,
-            input=text,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
+        try:
+            completed, stderr = _run_clipboard_command(cmd, text, run=run)
+        except subprocess.TimeoutExpired:
+            failures.append(
+                f"{' '.join(cmd)} (timed out after {_CLIPBOARD_COMMAND_TIMEOUT_SECONDS:g}s)"
+            )
+            continue
+        except OSError as exc:
+            failures.append(f"{' '.join(cmd)} ({exc})")
+            continue
+
         if completed.returncode == 0:
             return CopyResult(
                 ok=True,
                 detail=t("clipboard.success.copied_via", command=" ".join(cmd)),
             )
 
-        stderr = (completed.stderr or "").strip()
         failures.append(f"{' '.join(cmd)} ({stderr or f'exit={completed.returncode}'})")
 
     return CopyResult(
