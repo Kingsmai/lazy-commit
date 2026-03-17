@@ -28,11 +28,10 @@ CLI flags can override all of them at runtime (including `--lang`).
 2. Detect Git repository and collect change data.
 3. Build bounded context from:
    - branch name
-   - changed files
-   - status
+   - commit-scope files
+   - commit-scope status
    - staged diff
-   - unstaged diff
-   - untracked files
+   - unstaged diff and untracked files only when there are no staged changes yet, or when the user explicitly passes `--stage-all`
    - recent commit subjects
 4. Send prompt to LLM provider (OpenAI or Gemini).
    - when `--wip` is set, keep this flow and force normalized commit type to `wip`.
@@ -96,6 +95,8 @@ This keeps setup simple while still supporting both APIs.
 - If no changes exist, exit cleanly.
 - `--push` requires `--apply`.
 - `--wip` still depends on API/model generation, and only forces final type to `wip`.
+- When staged changes already exist, generation/history/summary default to the staged commit scope.
+- `--stage-all` opts back into full working-tree generation before commit.
 - Commit only runs when staged changes exist (or user passes `--stage-all`).
 - Interactive confirmation before commit unless `--yes`.
 - Explicit error types for config/git/model failures.

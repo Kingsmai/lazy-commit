@@ -540,11 +540,12 @@ class LazyCommitTUI:
             self._set_status(t("cli.log.no_local_changes"), "warn")
             return
 
+        generation_snapshot = self.snapshot.commit_scope()
         try:
             self._render_before_action(t("cli.log.building_context"))
             prompt_payload = build_generation_payload(
                 self.settings,
-                self.snapshot,
+                generation_snapshot,
                 token_model=self.options.token_model,
                 token_encoding=self.options.token_encoding,
             )
@@ -568,7 +569,7 @@ class LazyCommitTUI:
         try:
             record_generated_history(
                 self.git,
-                self.snapshot,
+                generation_snapshot,
                 result.final_message,
                 self.settings,
             )

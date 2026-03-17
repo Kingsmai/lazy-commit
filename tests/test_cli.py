@@ -455,6 +455,124 @@ class CLIRunLoggingTests(unittest.TestCase):
             settings,
         )
 
+    def test_run_uses_staged_commit_scope_for_generation_when_staged_changes_exist(self) -> None:
+        settings = Settings(
+            api_key="test-key",
+            base_url="https://api.openai.com/v1",
+            model_name="gpt-4.1-mini",
+            max_context_size=12000,
+            provider="openai",
+        )
+        snapshot = RepoSnapshot(
+            branch="main",
+            status_short="\n".join(
+                [
+                    "M  src/staged.py",
+                    " M src/unstaged.py",
+                    "MM src/mixed.py",
+                    "?? tmp/new.txt",
+                ]
+            ),
+            staged_diff="diff --git a/src/staged.py b/src/staged.py\n+staged",
+            unstaged_diff="diff --git a/src/unstaged.py b/src/unstaged.py\n+unstaged",
+            untracked_files="tmp/new.txt",
+            changed_files=[
+                "src/staged.py",
+                "src/unstaged.py",
+                "src/mixed.py",
+                "tmp/new.txt",
+            ],
+            recent_commits="chore: baseline",
+        )
+        prompt_payload = PromptPayload(system="system", user="user", context="context")
+
+        with patch("lazy_commit.cli.load_settings", return_value=settings), patch(
+            "lazy_commit.cli.GitClient"
+        ) as git_client_cls, patch(
+            "lazy_commit.cli.build_generation_payload", return_value=prompt_payload
+        ) as build_prompt_mock, patch(
+            "lazy_commit.cli.request_commit_proposal",
+            return_value='{"type":"chore","scope":"cli","subject":"add progress logs","body":[],"breaking_change":false}',
+        ), patch(
+            "lazy_commit.cli.finalize_generation",
+            return_value=_generation_result(),
+        ), patch(
+            "lazy_commit.cli.record_generated_history"
+        ) as record_history_mock, patch("builtins.print") as mocked_print:
+            git_client = git_client_cls.return_value
+            git_client.snapshot.return_value = snapshot
+
+            exit_code = run(["--no-copy"])
+
+        self.assertEqual(exit_code, 0)
+
+        generation_snapshot = build_prompt_mock.call_args.args[1]
+        self.assertEqual(
+            generation_snapshot.changed_files,
+            ["src/staged.py", "src/mixed.py"],
+        )
+        self.assertEqual(generation_snapshot.unstaged_diff, "")
+        self.assertEqual(generation_snapshot.untracked_files, "")
+
+        record_history_mock.assert_called_once()
+        history_snapshot = record_history_mock.call_args.args[1]
+        self.assertEqual(history_snapshot.changed_files, ["src/staged.py", "src/mixed.py"])
+
+        lines = [str(call.args[0]) for call in mocked_print.call_args_list if call.args]
+        self.assertTrue(any("src/staged.py" in line for line in lines))
+        self.assertTrue(any("src/mixed.py" in line for line in lines))
+        self.assertFalse(any("src/unstaged.py" in line for line in lines))
+        self.assertFalse(any("tmp/new.txt" in line for line in lines))
+
+    def test_run_keeps_full_generation_scope_when_stage_all_is_requested(self) -> None:
+        settings = Settings(
+            api_key="test-key",
+            base_url="https://api.openai.com/v1",
+            model_name="gpt-4.1-mini",
+            max_context_size=12000,
+            provider="openai",
+        )
+        snapshot = RepoSnapshot(
+            branch="main",
+            status_short="M  src/staged.py\n M src/unstaged.py",
+            staged_diff="diff --git a/src/staged.py b/src/staged.py\n+staged",
+            unstaged_diff="diff --git a/src/unstaged.py b/src/unstaged.py\n+unstaged",
+            untracked_files="",
+            changed_files=["src/staged.py", "src/unstaged.py"],
+            recent_commits="chore: baseline",
+        )
+        prompt_payload = PromptPayload(system="system", user="user", context="context")
+
+        with patch("lazy_commit.cli.load_settings", return_value=settings), patch(
+            "lazy_commit.cli.GitClient"
+        ) as git_client_cls, patch(
+            "lazy_commit.cli.build_generation_payload", return_value=prompt_payload
+        ) as build_prompt_mock, patch(
+            "lazy_commit.cli.request_commit_proposal",
+            return_value='{"type":"chore","scope":"cli","subject":"add progress logs","body":[],"breaking_change":false}',
+        ), patch(
+            "lazy_commit.cli.finalize_generation",
+            return_value=_generation_result(),
+        ), patch(
+            "lazy_commit.cli.record_generated_history"
+        ), patch("builtins.print"):
+            git_client = git_client_cls.return_value
+            git_client.snapshot.return_value = snapshot
+
+            exit_code = run(["--stage-all", "--no-copy"])
+
+        self.assertEqual(exit_code, 0)
+
+        generation_snapshot = build_prompt_mock.call_args.args[1]
+        self.assertEqual(
+            generation_snapshot.changed_files,
+            ["src/staged.py", "src/unstaged.py"],
+        )
+        self.assertEqual(
+            generation_snapshot.unstaged_diff,
+            "diff --git a/src/unstaged.py b/src/unstaged.py\n+unstaged",
+        )
+
     def test_run_list_languages_mode_skips_generation_flow(self) -> None:
         languages = [
             LanguageInfo(code="en", name="English", aliases=("en-gb", "en-us")),

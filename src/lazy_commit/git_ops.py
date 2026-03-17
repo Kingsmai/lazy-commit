@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from .errors import GitError
@@ -23,11 +23,41 @@ class RepoSnapshot:
 
     @property
     def has_any_changes(self) -> bool:
-        return bool(self.status_short.strip())
+        return any(
+            (
+                self.status_short.strip(),
+                self.staged_diff.strip(),
+                self.unstaged_diff.strip(),
+                self.untracked_files.strip(),
+                self.changed_files,
+            )
+        )
 
     @property
     def has_staged_changes(self) -> bool:
         return bool(self.staged_diff.strip())
+
+    def commit_scope(self, *, stage_all: bool = False) -> RepoSnapshot:
+        """Return the prompt/summary scope for the next commit candidate."""
+        if stage_all or not self.has_staged_changes:
+            return self
+
+        staged_changes = [
+            change
+            for change in _parse_porcelain_changes(self.status_short)
+            if change.is_staged
+        ]
+        staged_changed_files = _dedupe_paths(
+            [change.path for change in staged_changes]
+        ) or self.changed_files
+
+        return replace(
+            self,
+            status_short=_render_short_status(staged_changes, staged_only=True),
+            unstaged_diff="",
+            untracked_files="",
+            changed_files=staged_changed_files,
+        )
 
 
 @dataclass(frozen=True)
@@ -74,6 +104,28 @@ def _parse_porcelain_changes(output: str) -> list[FileChange]:
             )
         )
     return changes
+
+
+def _dedupe_paths(paths: list[str]) -> list[str]:
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for item in paths:
+        if item in seen:
+            continue
+        seen.add(item)
+        deduped.append(item)
+    return deduped
+
+
+def _render_short_status(changes: list[FileChange], *, staged_only: bool) -> str:
+    lines: list[str] = []
+    for change in changes:
+        path = change.path
+        if change.original_path:
+            path = f"{change.original_path} -> {path}"
+        worktree_status = " " if staged_only else change.worktree_status
+        lines.append(f"{change.index_status}{worktree_status} {path}")
+    return "\n".join(lines)
 
 
 class GitClient:
@@ -135,13 +187,7 @@ class GitClient:
     def changed_files(self) -> list[str]:
         result = self._run("status", "--porcelain")
         files = [change.path for change in _parse_porcelain_changes(result.stdout or "")]
-        seen: set[str] = set()
-        deduped: list[str] = []
-        for item in files:
-            if item not in seen:
-                seen.add(item)
-                deduped.append(item)
-        return deduped
+        return _dedupe_paths(files)
 
     def file_changes(self) -> list[FileChange]:
         result = self._run("status", "--porcelain")

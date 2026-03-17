@@ -426,11 +426,12 @@ def run(argv: list[str] | None = None) -> int:
         print(ui.warn(t("cli.log.no_local_changes")))
         print(ui.rule("="))
         return 0
+    generation_snapshot = snapshot.commit_scope(stage_all=args.stage_all)
 
     print(ui.info(t("cli.log.building_context")))
     prompt_payload = build_generation_payload(
         settings,
-        snapshot,
+        generation_snapshot,
         token_model=args.token_model,
         token_encoding=args.token_encoding,
     )
@@ -498,18 +499,18 @@ def run(argv: list[str] | None = None) -> int:
         ui.render_generation_summary(
             provider=settings.provider,
             model=settings.model_name,
-            branch=snapshot.branch,
-            file_count=len(snapshot.changed_files),
+            branch=generation_snapshot.branch,
+            file_count=len(generation_snapshot.changed_files),
         )
     )
     print(ui.section(t("cli.section.changed_files")))
-    print(ui.render_files(snapshot.changed_files))
+    print(ui.render_files(generation_snapshot.changed_files))
     print("")
     print(ui.section(t("cli.section.generated_commit_message")))
     print(ui.render_message_box(final_message))
 
     try:
-        record_generated_history(git, snapshot, final_message, settings)
+        record_generated_history(git, generation_snapshot, final_message, settings)
     except OSError as exc:
         print(ui.warn(t("cli.log.history_save_failed", error=exc)))
 

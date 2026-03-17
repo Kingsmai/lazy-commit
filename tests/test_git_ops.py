@@ -4,10 +4,55 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
-from lazy_commit.git_ops import GitClient
+from lazy_commit.git_ops import GitClient, RepoSnapshot
 
 
 class GitOpsTests(unittest.TestCase):
+    def test_commit_scope_uses_only_staged_context_when_available(self) -> None:
+        snapshot = RepoSnapshot(
+            branch="main",
+            status_short="\n".join(
+                [
+                    "M  src/staged.py",
+                    " M src/unstaged.py",
+                    "MM src/mixed.py",
+                    "?? tmp/new.txt",
+                ]
+            ),
+            staged_diff="diff --git a/src/staged.py b/src/staged.py\n+staged",
+            unstaged_diff="diff --git a/src/unstaged.py b/src/unstaged.py\n+unstaged",
+            untracked_files="tmp/new.txt",
+            changed_files=[
+                "src/staged.py",
+                "src/unstaged.py",
+                "src/mixed.py",
+                "tmp/new.txt",
+            ],
+            recent_commits="chore: baseline",
+        )
+
+        scoped = snapshot.commit_scope()
+
+        self.assertEqual(scoped.changed_files, ["src/staged.py", "src/mixed.py"])
+        self.assertEqual(scoped.unstaged_diff, "")
+        self.assertEqual(scoped.untracked_files, "")
+        self.assertEqual(scoped.status_short, "M  src/staged.py\nM  src/mixed.py")
+
+    def test_commit_scope_keeps_full_context_when_stage_all_is_requested(self) -> None:
+        snapshot = RepoSnapshot(
+            branch="main",
+            status_short="M  src/staged.py\n M src/unstaged.py",
+            staged_diff="diff --git a/src/staged.py b/src/staged.py\n+staged",
+            unstaged_diff="diff --git a/src/unstaged.py b/src/unstaged.py\n+unstaged",
+            untracked_files="",
+            changed_files=["src/staged.py", "src/unstaged.py"],
+            recent_commits="chore: baseline",
+        )
+
+        scoped = snapshot.commit_scope(stage_all=True)
+
+        self.assertIs(scoped, snapshot)
+
     def test_snapshot_handles_none_stdout_without_crashing(self) -> None:
         client = GitClient(cwd=".")
 
@@ -145,6 +190,19 @@ class GitOpsTests(unittest.TestCase):
 
         preview_mock.assert_called_once_with("file.py")
         self.assertEqual(rendered, "## Untracked file preview\nfile.py")
+
+    def test_snapshot_has_any_changes_when_only_staged_diff_exists(self) -> None:
+        snapshot = RepoSnapshot(
+            branch="main",
+            status_short="",
+            staged_diff="diff --git a/src/app.py b/src/app.py\n+line",
+            unstaged_diff="",
+            untracked_files="",
+            changed_files=[],
+            recent_commits="",
+        )
+
+        self.assertTrue(snapshot.has_any_changes)
 
 
 if __name__ == "__main__":
