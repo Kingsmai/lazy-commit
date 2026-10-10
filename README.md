@@ -2,7 +2,7 @@
 
 `lazy-commit` is a Python CLI that understands your local Git changes, asks an LLM for a structured Conventional Commit proposal, normalizes the result, and optionally runs `git commit` and `git push` in one flow.
 
-Current package version: `0.12.0`.
+Current package version: `0.12.1`.
 
 ## Highlights
 
@@ -106,6 +106,9 @@ Python 3.14 Windows wheels are available in
 [windows-curses 2.4.2](https://pypi.org/project/windows-curses/2.4.2/).
 Clipboard tools are optional: if copying is unavailable, the generated message
 is still printed. Git must be installed separately and available in PATH.
+
+On Windows, CLI output redirected to a pipe or file uses UTF-8, including help
+and error messages. This keeps Chinese text readable in CI and redirected logs.
 
 ### Local development install
 

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from lazy_commit.cli import main, run
+from lazy_commit.cli import _configure_windows_output, main, run
 from lazy_commit.config import Settings
 from lazy_commit.errors import ConfigError, LLMError
 from lazy_commit.git_ops import RepoSnapshot
@@ -24,6 +24,78 @@ def _generation_result(
     ),
 ) -> GenerationResult:
     return GenerationResult(raw_response=raw_response, final_message=message)
+
+
+class _TTYBuffer(io.StringIO):
+    """A text stream with TTY detection and realistic fileno() behavior."""
+
+    def isatty(self) -> bool:
+        return True
+
+
+class WindowsOutputTests(unittest.TestCase):
+    def setUp(self) -> None:
+        language = get_language()
+        self.addCleanup(set_language, language)
+
+    def test_chinese_help_writes_utf8_to_legacy_windows_pipe(self) -> None:
+        with (
+            io.TextIOWrapper(io.BytesIO(), encoding="cp1252") as stdout,
+            io.TextIOWrapper(io.BytesIO(), encoding="cp1252") as stderr,
+        ):
+            with (
+                patch("sys.platform", "win32"),
+                patch("sys.stdout", stdout),
+                patch("sys.stderr", stderr),
+                patch("sys.argv", ["lazy-commit", "--lang", "zh-CN", "--help"]),
+                self.assertRaises(SystemExit) as result,
+            ):
+                main()
+            self.assertEqual(result.exception.code, 0)
+            stdout.flush()
+            self.assertIn("生成规范化提交信息", stdout.buffer.getvalue().decode("utf-8"))
+            self.assertEqual(stderr.encoding, "utf-8")
+
+    def test_chinese_errors_write_utf8_to_legacy_windows_pipe(self) -> None:
+        with (
+            io.TextIOWrapper(io.BytesIO(), encoding="cp1252") as stdout,
+            io.TextIOWrapper(io.BytesIO(), encoding="cp1252") as stderr,
+        ):
+            with (
+                patch("sys.platform", "win32"),
+                patch("sys.stdout", stdout),
+                patch("sys.stderr", stderr),
+                patch("lazy_commit.cli.run", side_effect=ConfigError("配置错误 🚀")),
+                self.assertRaises(SystemExit) as result,
+            ):
+                main()
+            self.assertEqual(result.exception.code, 2)
+            stderr.flush()
+            self.assertIn("配置错误 🚀", stderr.buffer.getvalue().decode("utf-8"))
+
+    def test_capture_streams_remain_usable(self) -> None:
+        with (
+            io.StringIO() as stream,
+            patch("sys.platform", "win32"),
+            patch("sys.stdout", stream),
+            patch("sys.stderr", stream),
+        ):
+            _configure_windows_output()
+            print("中文")
+            self.assertEqual(stream.getvalue(), "中文\n")
+
+    def test_native_console_and_non_windows_encoding_are_preserved(self) -> None:
+        for platform, is_tty in (("win32", True), ("darwin", False)):
+            with (
+                self.subTest(platform=platform),
+                io.TextIOWrapper(io.BytesIO(), encoding="cp1252") as stream,
+                patch("sys.platform", platform),
+                patch("sys.stdout", stream),
+                patch("sys.stderr", stream),
+                patch.object(stream, "isatty", return_value=is_tty),
+            ):
+                _configure_windows_output()
+                self.assertEqual(stream.encoding, "cp1252")
 
 
 class CLIRunLoggingTests(unittest.TestCase):
@@ -261,10 +333,8 @@ class CLIRunLoggingTests(unittest.TestCase):
             max_context_size=12000,
             provider="openai",
         )
-        fake_stdin = Mock()
-        fake_stdout = Mock()
-        fake_stdin.isatty.return_value = True
-        fake_stdout.isatty.return_value = True
+        fake_stdin = _TTYBuffer()
+        fake_stdout = _TTYBuffer()
 
         with patch("lazy_commit.cli.load_settings", return_value=settings) as load_settings_mock, patch(
             "lazy_commit.tui.run_tui", return_value=0
@@ -296,10 +366,8 @@ class CLIRunLoggingTests(unittest.TestCase):
         self.assertTrue(options.wip)
 
     def test_run_tui_rejects_non_interactive_flags(self) -> None:
-        fake_stdin = Mock()
-        fake_stdout = Mock()
-        fake_stdin.isatty.return_value = True
-        fake_stdout.isatty.return_value = True
+        fake_stdin = _TTYBuffer()
+        fake_stdout = _TTYBuffer()
 
         with patch("sys.stdin", fake_stdin), patch("sys.stdout", fake_stdout):
             with self.assertRaises(ConfigError) as context:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import sys
 from typing import TextIO
 
@@ -566,7 +567,18 @@ def run(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _configure_windows_output() -> None:
+    """Use UTF-8 for Windows pipes and files, which otherwise use ANSI encoding."""
+    if sys.platform != "win32":
+        return
+    for stream in (sys.stdout, sys.stderr):
+        # Leave native consoles and caller-provided capture objects untouched.
+        if isinstance(stream, io.TextIOWrapper) and not stream.isatty():
+            stream.reconfigure(encoding="utf-8")
+
+
 def main() -> None:
+    _configure_windows_output()
     try:
         raise SystemExit(run())
     except (ConfigError, GitError, LLMError, LazyCommitError) as exc:
