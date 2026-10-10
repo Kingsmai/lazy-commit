@@ -2,12 +2,24 @@ from __future__ import annotations
 
 import os
 import unittest
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
 from lazy_commit.config import GEMINI_PROVIDER, OPENAI_PROVIDER, detect_provider, load_settings
 from lazy_commit.errors import ConfigError
 
 
 class ConfigTests(unittest.TestCase):
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        env = patch.dict(os.environ, {
+            "LAZY_COMMIT_CONFIG_PATH": str(Path(temporary.name) / "config.json"),
+        }, clear=True)
+        env.start()
+        self.addCleanup(env.stop)
+
     def test_detect_provider_from_model(self) -> None:
         self.assertEqual(detect_provider("gemini-2.0-flash", None), GEMINI_PROVIDER)
         self.assertEqual(detect_provider("gpt-4.1-mini", None), OPENAI_PROVIDER)

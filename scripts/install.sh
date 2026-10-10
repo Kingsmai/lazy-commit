@@ -44,4 +44,9 @@ fi
 "$uv_bin" tool update-shell
 bin_dir=$("$uv_bin" tool dir --bin)
 "$bin_dir/lazy-commit" --version
-echo "Installed. Open a new terminal and run: lazy-commit --help"
+echo "Installed."
+if [ -t 1 ] && ( : </dev/tty ) 2>/dev/null; then
+    "$bin_dir/lazy-commit" --setup </dev/tty
+else
+    echo "Open a new terminal and run: lazy-commit --setup"
+fi

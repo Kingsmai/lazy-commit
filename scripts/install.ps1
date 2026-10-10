@@ -45,4 +45,10 @@ $binDir = & $uvBin tool dir --bin
 if ($LASTEXITCODE -ne 0) { throw 'Could not locate the executable directory.' }
 & (Join-Path $binDir 'lazy-commit.exe') --version
 if ($LASTEXITCODE -ne 0) { throw 'Installation verification failed.' }
-Write-Host 'Installed. Open a new terminal and run: lazy-commit --help'
+Write-Host 'Installed.'
+if (-not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected) {
+    & (Join-Path $binDir 'lazy-commit.exe') --setup
+    if ($LASTEXITCODE -ne 0) { throw 'Setup was not completed. Run lazy-commit --setup to continue.' }
+} else {
+    Write-Host 'Open a new terminal and run: lazy-commit --setup'
+}

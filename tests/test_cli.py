@@ -107,6 +107,8 @@ class CLIRunLoggingTests(unittest.TestCase):
             os.environ,
             {
                 "LAZY_COMMIT_LANG": "en",
+                "LAZY_COMMIT_API_KEY": "test-key",
+                "LAZY_COMMIT_CONFIG_PATH": os.path.join(self._history_dir.name, "config.json"),
                 "LAZY_COMMIT_HISTORY_PATH": os.path.join(
                     self._history_dir.name, "history.jsonl"
                 ),

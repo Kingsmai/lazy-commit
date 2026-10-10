@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import argparse
 import io
+import os
 import sys
 from typing import TextIO
 
 from . import __version__
 from .clipboard import copy_text
-from .config import load_settings
+from .config import load_settings, read_user_config
 from .errors import ConfigError, GitError, LLMError, LazyCommitError
 from .git_ops import GitClient
 from .history import (
@@ -48,6 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
         version=f"%(prog)s {__version__}",
         help=t("cli.help.version"),
     )
+    parser.add_argument("--setup", action="store_true", help=t("cli.help.setup"))
     parser.add_argument("--api-key", help=t("cli.help.api_key"))
     parser.add_argument("--base-url", help=t("cli.help.base_url"))
     parser.add_argument(
@@ -314,10 +316,29 @@ def _print_cli_error(exc: BaseException, *, stream: TextIO) -> None:
 
 def run(argv: list[str] | None = None) -> int:
     raw_argv = list(sys.argv[1:] if argv is None else argv)
-    set_language(detect_language(peek_cli_language(raw_argv)))
+    try:
+        saved = read_user_config()
+    except ConfigError:
+        # Keep help, diagnostics, and the repair wizard usable with a damaged file.
+        if not any(flag in raw_argv for flag in (
+            "--setup", "--help", "-h", "--version", "--list-languages",
+            "--check-i18n", "--count-tokens",
+        )):
+            raise
+        saved = {}
+    language = (
+        peek_cli_language(raw_argv) or os.getenv("LAZY_COMMIT_LANG")
+        or str(saved.get("language", ""))
+    )
+    set_language(detect_language(language))
 
     args = build_parser().parse_args(raw_argv)
-    set_language(args.lang)
+    set_language(args.lang or language)
+
+    if args.setup:
+        from .setup_wizard import run_setup
+
+        return run_setup(preferred_language=language or None)
 
     if args.history_limit <= 0:
         raise ConfigError(t("cli.error.history_limit_positive"))
@@ -385,6 +406,15 @@ def run(argv: list[str] | None = None) -> int:
         print(ui.key_value(t("cli.label.tokens"), str(result.token_count)))
         print(ui.rule("="))
         return 0
+
+    key = (
+        args.api_key or os.getenv("LAZY_COMMIT_API_KEY")
+        or os.getenv("LAZY_COMMIT_OPENAI_API_KEY") or saved.get("api_key", "")
+    )
+    if not str(key).strip() and sys.stdin.isatty() and sys.stdout.isatty():
+        from .setup_wizard import run_setup
+
+        return run_setup(preferred_language=language or None)
 
     if args.tui:
         _validate_tui_args(args)
