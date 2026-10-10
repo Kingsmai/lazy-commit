@@ -60,7 +60,7 @@ class TUITests(unittest.TestCase):
 
         self.assertIn("windows-curses", str(context.exception))
 
-    def test_run_tui_reports_windows_python_314_compatibility_hint(self) -> None:
+    def test_run_tui_reports_install_hint_on_windows_python_314(self) -> None:
         settings = Settings(
             api_key="test-key",
             base_url="https://api.openai.com/v1",
@@ -75,7 +75,8 @@ class TUITests(unittest.TestCase):
             with self.assertRaises(ConfigError) as context:
                 run_tui(settings, TUIOptions())
 
-        self.assertIn("Python 3.14+", str(context.exception))
+        self.assertIn("windows-curses", str(context.exception))
+        self.assertNotIn("has not published", str(context.exception))
 
 
 if __name__ == "__main__":

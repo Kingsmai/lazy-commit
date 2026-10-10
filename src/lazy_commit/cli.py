@@ -6,6 +6,7 @@ import argparse
 import sys
 from typing import TextIO
 
+from . import __version__
 from .clipboard import copy_text
 from .config import load_settings
 from .errors import ConfigError, GitError, LLMError, LazyCommitError
@@ -39,6 +40,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="lazy-commit",
         description=t("cli.description"),
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+        help=t("cli.help.version"),
     )
     parser.add_argument("--api-key", help=t("cli.help.api_key"))
     parser.add_argument("--base-url", help=t("cli.help.base_url"))

@@ -45,8 +45,6 @@ class TUIOptions:
 
 def _tui_unavailable_message() -> str:
     if sys.platform == "win32":
-        if sys.version_info >= (3, 14):
-            return t("cli.error.tui_unavailable_windows_py314")
         return t("cli.error.tui_unavailable_windows")
     return t("cli.error.tui_unavailable")
 

@@ -4,6 +4,7 @@
   "yes_answers": ["y", "yes"],
   "messages": {
     "cli.description": "Understand git changes, generate a normalized commit message, and optionally apply/push in one command.",
+    "cli.help.version": "Show the installed version and exit.",
     "cli.help.api_key": "Override LAZY_COMMIT_API_KEY",
     "cli.help.base_url": "Override LAZY_COMMIT_BASE_URL",
     "cli.help.model": "Override LAZY_COMMIT_OPENAI_MODEL_NAME (also used for Gemini model id).",
@@ -38,7 +39,6 @@
     "cli.error.tui_requires_tty": "--tui requires an interactive terminal.",
     "cli.error.tui_unavailable": "TUI mode is unavailable on this platform.",
     "cli.error.tui_unavailable_windows": "TUI mode is unavailable because Python curses is not installed. On Windows, reinstall or upgrade lazy-commit to install windows-curses.",
-    "cli.error.tui_unavailable_windows_py314": "TUI mode is unavailable on Windows with Python 3.14+ because windows-curses has not published compatible wheels yet. Use the standard CLI, or run lazy-commit with Python 3.13 or earlier for --tui.",
     "cli.error.prefix": "lazy-commit error: {error}",
     "cli.error.detail": "Detail: {detail}",
     "cli.error.hint": "Hint: {hint}",

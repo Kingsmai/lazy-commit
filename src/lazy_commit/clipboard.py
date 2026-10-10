@@ -97,6 +97,8 @@ def _run_clipboard_command(
             cmd,
             input=text,
             text=True,
+            # clip/clip.exe expects UTF-16; Unix backends consume UTF-8.
+            encoding="utf-16" if cmd[0] in {"clip", "clip.exe"} else "utf-8",
             stdout=subprocess.DEVNULL,
             stderr=stderr_buffer,
             check=False,

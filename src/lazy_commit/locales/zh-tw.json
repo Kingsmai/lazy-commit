@@ -4,6 +4,7 @@
   "yes_answers": ["y", "yes", "是"],
   "messages": {
     "cli.description": "理解 Git 變更，產生規範化提交訊息，並可在單一命令中提交/推送。",
+    "cli.help.version": "顯示已安裝版本並結束。",
     "cli.help.api_key": "覆寫 LAZY_COMMIT_API_KEY",
     "cli.help.base_url": "覆寫 LAZY_COMMIT_BASE_URL",
     "cli.help.model": "覆寫 LAZY_COMMIT_OPENAI_MODEL_NAME（Gemini 模型 id 也使用此參數）。",
@@ -38,7 +39,6 @@
     "cli.error.tui_requires_tty": "--tui 需要互動式終端。",
     "cli.error.tui_unavailable": "目前平台無法使用 TUI 模式。",
     "cli.error.tui_unavailable_windows": "TUI 模式不可用，因為目前 Python 環境未安裝 curses。Windows 上請重新安裝或升級 lazy-commit，以安裝 windows-curses。",
-    "cli.error.tui_unavailable_windows_py314": "Windows + Python 3.14 及以上版本暫時無法使用 TUI 模式，因為 windows-curses 尚未發布相容 wheel。你可以繼續使用一般 CLI，或改用 Python 3.13 及以下版本執行 lazy-commit --tui。",
     "cli.error.prefix": "lazy-commit 錯誤：{error}",
     "cli.error.detail": "詳情：{detail}",
     "cli.error.hint": "提示：{hint}",

@@ -39,7 +39,7 @@ class HistoryTests(unittest.TestCase):
 
             filtered = load_history_entries(path=history_file, query="demo-one", limit=10)
             self.assertEqual(len(filtered), 1)
-            self.assertEqual(filtered[0].repo_path, "/work/demo-one")
+            self.assertEqual(filtered[0].repo_path, str(Path("/work/demo-one").resolve()))
 
     def test_load_history_ignores_missing_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

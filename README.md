@@ -2,7 +2,7 @@
 
 `lazy-commit` is a Python CLI that understands your local Git changes, asks an LLM for a structured Conventional Commit proposal, normalizes the result, and optionally runs `git commit` and `git push` in one flow.
 
-Current package version: `0.10.2`.
+Current package version: `0.12.0`.
 
 ## Highlights
 
@@ -26,34 +26,106 @@ Current package version: `0.10.2`.
 
 ## Installation
 
-### Local development install (editable)
+### 快捷安装 / Quick install
+
+支持 macOS、Linux、Windows 和 WSL。只需提前安装 Git；安装脚本会自动准备
+uv、Python 3.13 和独立的工具环境，并将命令目录加入 PATH。无需管理员权限，
+也无需手动激活虚拟环境。首次安装需要联网；安装完成后重新打开终端。
+
+From a checkout (installs your local code, including unpublished changes):
+
+macOS / Linux / WSL:
+
+```bash
+sh scripts/install.sh
+```
+
+Windows PowerShell:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install.ps1
+```
+
+The scripts reuse uv when available, otherwise download its
+[official installer](https://docs.astral.sh/uv/getting-started/installation/).
+They install into an isolated environment using Python 3.13 and verify `--version`.
+Rerun the same command to update. A wheel, source directory, or Git URL can be
+passed as the first argument (`-Source` in PowerShell).
+
+Already have [uv](https://docs.astral.sh/uv/)? Install directly from GitHub,
+without cloning or having Python preinstalled (this installs the **published
+repository state**, not local changes):
+
+```bash
+uv tool install --python 3.13 "git+https://github.com/Kingsmai/lazy-commit.git"
+uv tool update-shell
+```
+
+These two commands work in both Unix shells and Windows PowerShell. Open a new
+terminal, then verify:
+
+```bash
+lazy-commit --version
+lazy-commit --lang zh-CN --help
+```
+
+Update or uninstall an installation managed by uv:
+
+```bash
+uv tool upgrade lazy-commit
+uv tool uninstall lazy-commit
+```
+
+For installs from a local checkout, rerun the installer after updating the code.
+`uv tool uninstall` removes the command and its environment; generated history
+is retained. If you already use pipx, the equivalent source install is:
+
+```bash
+pipx install "git+https://github.com/Kingsmai/lazy-commit.git"
+pipx ensurepath
+```
+
+### Platform support
+
+| Platform | CLI | Full-screen TUI | Clipboard |
+| --- | --- | --- | --- |
+| macOS (Apple Silicon / Intel) | Supported | Python curses + interactive terminal | `pbcopy` |
+| Linux | Supported | Python curses + interactive terminal | `wl-copy` (Wayland), `xclip`/`xsel` (X11) |
+| Windows x64 | Supported | `windows-curses` installed automatically | `clip` (Unicode) |
+| WSL | Supported | Linux curses + interactive terminal | `clip.exe`, then Linux tools |
+| SSH / headless CI | Supported | Requires an interactive terminal | Optional; use `--no-copy` |
+
+CI is configured to test Python 3.10–3.14 on macOS, Ubuntu, and Windows, including
+package installation, CLI entry points, locales, and curses imports. Installer
+smoke checks install a built wheel twice on all three platforms. Interactive
+terminal behavior and WSL clipboard interop still need validation on real hosts.
+Native Windows ARM64 and other architectures depend on available dependency
+wheels and are not covered by this CI matrix.
+
+Python 3.14 Windows wheels are available in
+[windows-curses 2.4.2](https://pypi.org/project/windows-curses/2.4.2/).
+Clipboard tools are optional: if copying is unavailable, the generated message
+is still printed. Git must be installed separately and available in PATH.
+
+### Local development install
+
+macOS / Linux / WSL (Python 3.10+):
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
+python -m pip install -e .
 ```
 
-Verify:
+Windows PowerShell:
 
-```bash
-lazy-commit --help
+```powershell
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe -m lazy_commit --help
 ```
 
-Windows note: installing from `pyproject.toml` now pulls in `windows-curses` automatically so `lazy-commit --tui` works in supported terminals on Python 3.10-3.13. If you installed an older build before this dependency was added, rerun the install command to refresh dependencies.
-
-### User-level install (outside venv)
-
-```bash
-python3 -m pip install --user .
-```
-
-If needed, add `~/.local/bin` to your shell `PATH`:
-
-```bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-```
+`python -m lazy_commit` is also available when the console script is not on PATH.
 
 ## Quick Start
 
@@ -77,6 +149,15 @@ export LAZY_COMMIT_BASE_URL="https://generativelanguage.googleapis.com/v1beta"
 export LAZY_COMMIT_OPENAI_MODEL_NAME="gemini-2.0-flash"
 export LAZY_COMMIT_MAX_CONTEXT_SIZE="12000"
 export LAZY_COMMIT_LANG="zh-CN"
+```
+
+Windows PowerShell configuration (for the current terminal session):
+
+```powershell
+$env:LAZY_COMMIT_API_KEY = "your-api-key"
+$env:LAZY_COMMIT_BASE_URL = "https://api.openai.com/v1"
+$env:LAZY_COMMIT_OPENAI_MODEL_NAME = "gpt-4.1-mini"
+$env:LAZY_COMMIT_LANG = "zh-CN"
 ```
 
 ### 2. Generate preview only
@@ -118,7 +199,7 @@ lazy-commit --tui
 lazy-commit --tui --wip --no-copy
 ```
 
-If `--tui` still reports that TUI mode is unavailable on Windows, reinstall or upgrade the package so `pip` installs `windows-curses` into the same Python environment as `lazy-commit`. On Python 3.14 or newer, TUI remains unavailable until `windows-curses` publishes compatible wheels.
+If `--tui` reports that TUI mode is unavailable on Windows, rerun the installer to refresh `windows-curses` in the same environment. Use an interactive terminal such as Windows Terminal.
 
 TUI key bindings:
 
@@ -199,6 +280,7 @@ Options:
 
 | Option | Description |
 | --- | --- |
+| `--version` | Print the installed version and exit |
 | `--apply` | Run `git commit` with generated message |
 | `--push` | Push after commit (requires `--apply`) |
 | `--stage-all` | Stage tracked and untracked changes before commit |

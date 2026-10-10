@@ -18,6 +18,30 @@ class _Result:
 
 
 class ClipboardTests(unittest.TestCase):
+    def test_unicode_input_uses_backend_encoding(self) -> None:
+        message = "feat: 支持中文 🚀\n\n第二行"
+        for system, command, env, encoding in [
+            ("Windows", "clip", {}, "utf-16"),
+            ("Linux", "clip.exe", {"WSL_INTEROP": "1"}, "utf-16"),
+            ("Darwin", "pbcopy", {}, "utf-8"),
+            ("Linux", "wl-copy", {"WAYLAND_DISPLAY": "wayland-0"}, "utf-8"),
+        ]:
+            with self.subTest(command=command):
+                def fake_run(cmd, **kwargs):  # type: ignore[no-untyped-def]
+                    self.assertEqual(kwargs["encoding"], encoding)
+                    self.assertEqual(kwargs["input"], message)
+                    self.assertEqual(
+                        kwargs["input"].encode(kwargs["encoding"]).decode(encoding),
+                        message,
+                    )
+                    return _Result(returncode=0)
+
+                result = copy_text(
+                    message, run=fake_run, system_name=system,
+                    which=lambda name: name if name == command else None, env=env,
+                )
+                self.assertTrue(result.ok)
+
     def test_windows_prefers_clip(self) -> None:
         commands = clipboard_commands(
             system_name="Windows",
