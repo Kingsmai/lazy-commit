@@ -1,10 +1,21 @@
-# lazy-commit
+<p align="center">
+  <img src="docs/assets/hero.svg" alt="lazy-commit — 提交信息，少想一步。AI 读懂改动，你来确认提交。" width="100%" />
+</p>
 
-让 AI 帮你写 Git 提交信息。支持 macOS、Windows、Linux 和 WSL。
+<p align="center">
+  <a href="https://github.com/Kingsmai/lazy-commit/actions/workflows/ci.yml"><img src="https://github.com/Kingsmai/lazy-commit/actions/workflows/ci.yml/badge.svg" alt="跨平台构建与测试" /></a>
+  <a href="docs/REFERENCE.md#platform-support"><img src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-102e2b?style=flat-square" alt="macOS · Windows · Linux · 支持 WSL" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-a4edc5?style=flat-square&labelColor=102e2b" alt="MIT License" /></a>
+</p>
 
-## 1. 安装并配置
+<p align="center">
+  <b>一条命令安装，跟着向导配置，在提交前由你确认。</b><br />
+  <a href="#开始使用">开始使用</a> · <a href="docs/REFERENCE.md">完整文档</a> · <a href="CONTRIBUTING.md">参与开发</a>
+</p>
 
-准备好 **Git** 和你的模型服务 **API Key**，打开终端，复制对应命令：
+## 开始使用
+
+准备好 **Git** 和模型服务的 **API Key**，复制命令即可。无需预装 Python。
 
 **macOS / Linux / WSL**
 
@@ -18,45 +29,37 @@ curl -fsSL https://raw.githubusercontent.com/Kingsmai/lazy-commit/main/scripts/i
 powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Kingsmai/lazy-commit/main/scripts/install.ps1 | iex"
 ```
 
-安装完成会自动打开配置向导：选择语言 → 选择模型服务 → 填写模型和 API Key → 确认保存。
-按回车使用默认值，按 `Ctrl+C` 可取消。完成后重新打开终端。
-无需安装 Python，无需手动设置环境变量。
+安装后自动进入向导：**选语言 → 选服务 → 填模型与密钥 → 保存**。完成后重开终端。
 
-> API Key 从你使用的模型服务控制台获取。输入时不会显示字符，保存于用户目录的配置文件中（明文），不会写入项目。向导保存配置，不会调用模型。
+<details>
+<summary>看看配置过程</summary>
 
-如果向导没有自动打开，重开终端运行：
+![配置向导示意：选择服务、隐藏输入密钥、确认保存](docs/assets/setup.svg)
 
-```sh
-lazy-commit --setup
-```
+按回车使用默认值，按 `Ctrl+C` 取消。向导未打开时，运行 `lazy-commit --setup`。
 
-## 2. 开始使用
+</details>
 
-在你的 **Git 项目目录** 打开终端，预览 AI 生成的提交信息：
+> 密钥隐藏输入，以明文保存在用户目录，不写入项目。向导不调用模型；已有环境变量优先于保存的配置。
+
+## 写代码，然后交给它
+
+在 Git 项目目录运行，**先预览**提交信息：
 
 ```sh
 lazy-commit
 ```
 
-想把所有改动暂存并提交？运行下面的命令，检查生成的信息，再确认：
+想暂存所有改动并提交？检查生成的信息，再确认：
 
 ```sh
 lazy-commit --apply --stage-all
 ```
 
-## 以后怎么用？
+| 想做什么 | 运行什么 |
+| :--- | :--- |
+| 修改模型、密钥或语言 | `lazy-commit --setup` |
+| 打开全屏交互界面 | `lazy-commit --tui` |
+| 更新 / 卸载 | 重跑安装命令 / `uv tool uninstall lazy-commit` |
 
-| 我想…… | 怎么做 |
-| --- | --- |
-| 修改 API Key、模型或语言 | `lazy-commit --setup` |
-| 使用可操作的全屏界面 | `lazy-commit --tui` |
-| 更新版本 | 重新运行上面的安装命令 |
-| 卸载 | `uv tool uninstall lazy-commit` |
-
-**遇到问题？** 提示找不到 Git 时先安装 Git；提示找不到 `lazy-commit` 时重开终端。
-API 报错时运行 `lazy-commit --setup` 核对服务地址、模型名称和密钥。
-已有环境变量会优先于向导保存的配置。
-
-更多内容：[完整参数与配置](docs/REFERENCE.md) · [参与开发](CONTRIBUTING.md)
-
-MIT License · 当前版本 `0.13.0`
+<sub>找不到命令？重开终端。API 报错？运行 <code>lazy-commit --setup</code> 核对配置。更多见 <a href="docs/REFERENCE.md#troubleshooting">常见问题</a>。</sub>

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="430" viewBox="0 0 1120 430" role="img" aria-labelledby="title description">
+  <title id="title">lazy-commit 配置向导示意</title>
+  <desc id="description">运行 lazy-commit --setup，选择语言和模型服务，填写模型与隐藏输入的 API Key，确认保存。示意使用占位信息，没有真实密钥，也不表示已验证 API 可用。</desc>
+  <rect width="1120" height="430" rx="20" fill="#101d24"/>
+  <rect x="1" y="1" width="1118" height="428" rx="19" fill="none" stroke="#33483f"/>
+  <g font-family="'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif">
+    <text x="38" y="57" fill="#a4edc5" font-size="12" font-weight="600" letter-spacing="2">GUIDED SETUP</text>
+    <text x="36" y="98" fill="#f3f8f2" font-size="27" font-weight="650">跟着提示，就配好了。</text>
+    <text x="38" y="130" fill="#98b2a3" font-size="15">不用改文件，不用记环境变量。</text>
+    <path d="M52 188v119" stroke="#3b594c" stroke-width="2"/>
+    <g fill="#18382b" stroke="#426952">
+      <circle cx="52" cy="189" r="16"/>
+      <circle cx="52" cy="253" r="16"/>
+      <circle cx="52" cy="317" r="16"/>
+    </g>
+    <g text-anchor="middle" font-size="13" font-weight="600" fill="#b7efca">
+      <text x="52" y="194">1</text>
+      <text x="52" y="258">2</text>
+      <text x="52" y="322">3</text>
+    </g>
+    <g font-size="18" fill="#d6e5db">
+      <text x="83" y="195">选择语言与服务</text>
+      <text x="83" y="259">填写模型和密钥</text>
+      <text x="83" y="323">确认保存，开始使用</text>
+    </g>
+    <text x="38" y="392" font-size="13" fill="#8da498">Enter 使用默认值 · Ctrl+C 取消</text>
+  </g>
+  <g transform="translate(397 31)">
+    <rect width="690" height="366" rx="12" fill="#0b151a" stroke="#2a4036"/>
+    <path d="M0 40h690" stroke="#263a32"/>
+    <g fill="#4b6254">
+      <circle cx="19" cy="20" r="4"/>
+      <circle cx="35" cy="20" r="4"/>
+      <circle cx="51" cy="20" r="4"/>
+    </g>
+    <text x="666" y="25" text-anchor="end" font-size="11" letter-spacing="1.1" fill="#8da498" font-family="sans-serif">配置流程示意 · 节选</text>
+    <g font-family="'SFMono-Regular', Consolas, 'PingFang SC', 'Microsoft YaHei', monospace" font-size="17">
+      <text x="24" y="80" fill="#e0ede4"><tspan fill="#a4edc5">$</tspan><tspan dx="8">lazy-commit --setup</tspan></text>
+      <text x="24" y="124" fill="#98afa0">语言 / Language [1]: <tspan fill="#e0ede4">1 · 简体中文</tspan></text>
+      <text x="24" y="158" fill="#98afa0">你的 API Key 来自哪个服务？ [1]: <tspan fill="#e0ede4">1 · OpenAI</tspan></text>
+      <text x="24" y="192" fill="#98afa0">模型名称: <tspan fill="#e0ede4">gpt-4.1-mini</tspan></text>
+      <text x="24" y="226" fill="#98afa0">API Key: <tspan fill="#efc89e">[隐藏输入]</tspan></text>
+      <text x="24" y="260" fill="#98afa0">保存配置？[Y/n]: <tspan fill="#e0ede4">Y</tspan></text>
+      <path d="M24 281h642" stroke="#263a32"/>
+      <text x="24" y="312" fill="#a4edc5">配置已保存。</text>
+      <text x="24" y="339" fill="#8da498" font-size="14">在 Git 项目目录运行 lazy-commit，预览提交信息。</text>
+    </g>
+  </g>
+</svg>
